@@ -16,6 +16,7 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO_ROOT"
+export PYTHONPATH="$REPO_ROOT${PYTHONPATH:+:$PYTHONPATH}"
 
 PASS=0
 FAIL=0
@@ -545,6 +546,128 @@ assert_passed "verify_application handles non-UTF8 input gracefully" "false" \
 assert_passed "verify_cv handles non-UTF8 input gracefully" "false" \
   "$PYTHON" tools/verify_cv.py "$_BAD_ENC_FILE" --target-pages=1
 rm -f "$_BAD_ENC_FILE" 2>/dev/null || true
+
+# assert_python_ok <name> <python -c script>
+assert_python_ok() {
+  local name="$1"; shift
+  if "$PYTHON" -c "$@" >/dev/null 2>&1; then
+    RESULTS+=("PASS  $name")
+    PASS=$((PASS+1))
+  else
+    RESULTS+=("FAIL  $name")
+    FAIL=$((FAIL+1))
+  fi
+}
+
+# --- Report adapter helpers (Phase 1 foundations) ---
+assert_python_ok "mask_secrets redacts Bearer sk-*" \
+  "from tools.report_adapters._helpers import mask_secrets; t='Bearer sk-abc123456789012345678901234'; assert mask_secrets(t) == '[REDACTED]', repr(mask_secrets(t))"
+
+assert_python_ok "truncate_trace caps at 5KB" \
+  "from tools.report_adapters._helpers import truncate_trace; big='x' * 100_000; out, trunc = truncate_trace(big); assert trunc; assert '[truncated]' in out; assert len(out.encode('utf-8')) <= 5200"
+
+assert_python_ok "load_json_safe missing returns FileNotFoundError" \
+  "from pathlib import Path; from tools.report_adapters._helpers import load_json_safe; data, err = load_json_safe(Path('tests/fixtures/__no_such_file__.json')); assert data is None and err and 'FileNotFoundError' in err"
+
+assert_python_ok "load_json_safe malformed returns JSONDecodeError" \
+  "import tempfile, os; from pathlib import Path; from tools.report_adapters._helpers import load_json_safe; fd, p = tempfile.mkstemp(suffix='.json'); os.write(fd, b'{not json'); os.close(fd); data, err = load_json_safe(Path(p)); os.unlink(p); assert data is None and err and 'JSONDecodeError' in err"
+
+assert_python_ok "atomic_write creates target file" \
+  "import tempfile, os; from pathlib import Path; from tools.report_adapters._helpers import atomic_write; d = Path(tempfile.mkdtemp()); t = d / 'out.txt'; atomic_write('hello', t); assert t.read_text(encoding='utf-8') == 'hello'; import shutil; shutil.rmtree(d)"
+
+assert_python_ok "snapshot_read_jsonl drops trailing partial line silently" \
+  "import tempfile, os; from pathlib import Path; from tools.report_adapters._helpers import snapshot_read_jsonl; d = Path(tempfile.mkdtemp()); p = d / 'state.jsonl'; p.write_text('{\"a\":1}\n{\"b\":2', encoding='utf-8'); rows, warns = snapshot_read_jsonl(p); import shutil; shutil.rmtree(d); assert len(rows) == 1 and rows[0]['a'] == 1 and not warns"
+
+assert_python_ok "report adapter registry imports cleanly" \
+  "from tools.report_adapters import make_jinja_env, list_adapters; from pathlib import Path; env = make_jinja_env(Path('templates/report')); assert env.autoescape is not None"
+
+# --- RUN.json migration + init_outbound_run schema v2 (Phase 2) ---
+_MIGRATE_DIR="$(mktemp -d -t auto-essay-migrate.XXXXXX 2>/dev/null || mktemp -d)"
+mkdir -p "$_MIGRATE_DIR/review-stage/outbound/runs/20260525_test-run"
+cat > "$_MIGRATE_DIR/review-stage/outbound/runs/20260525_test-run/RUN.json" <<'EOF'
+{
+  "tool": "init_outbound_run",
+  "schema_version": 1,
+  "run_id": "20260525_test-run"
+}
+EOF
+
+_MIGRATE_OUT="$("$PYTHON" tools/migrate_run_json_add_skill.py --root="$_MIGRATE_DIR/review-stage" 2>&1)" || true
+_MIGRATE_PASSED="$(extract_passed "$_MIGRATE_OUT")"
+if [ "$_MIGRATE_PASSED" = "true" ]; then
+  RESULTS+=("PASS  migrate_run_json adds skill to fixture without skill")
+  PASS=$((PASS+1))
+else
+  RESULTS+=("FAIL  migrate_run_json adds skill to fixture without skill  (expected passed=true, got passed=$_MIGRATE_PASSED)")
+  FAIL=$((FAIL+1))
+fi
+
+_MIGRATE_SKILL="$("$PYTHON" -c "
+import sys, json
+data = json.loads(sys.stdin.read())
+for check in data.get('checks', []):
+    if check.get('name') == 'skill_backfilled':
+        print(check.get('skill', ''))
+        break
+else:
+    print('')
+" <<< "$_MIGRATE_OUT")"
+if [ "$_MIGRATE_SKILL" = "linkedin-outbound" ]; then
+  RESULTS+=("PASS  migrate_run_json wrote skill=linkedin-outbound")
+  PASS=$((PASS+1))
+else
+  RESULTS+=("FAIL  migrate_run_json skill  (expected linkedin-outbound, got '$_MIGRATE_SKILL')")
+  FAIL=$((FAIL+1))
+fi
+
+assert_metric "migrate_run_json idempotent on already-migrated" "skipped" "1" \
+  "$PYTHON" tools/migrate_run_json_add_skill.py --root="$_MIGRATE_DIR/review-stage"
+rm -rf "$_MIGRATE_DIR" 2>/dev/null || true
+
+_INIT_OUT="$(mktemp -d -t auto-essay-init-outbound.XXXXXX 2>/dev/null || mktemp -d)"
+_INIT_OUT_JSON="$("$PYTHON" tools/init_outbound_run.py tests/fixtures/outbound/campaign.json --base-dir="$_INIT_OUT/outbound" --no-latest --name=test-init --timestamp=20260525_120000 2>&1)" || true
+_INIT_PASSED="$(extract_passed "$_INIT_OUT_JSON")"
+if [ "$_INIT_PASSED" = "true" ]; then
+  RESULTS+=("PASS  init_outbound_run creates run directory")
+  PASS=$((PASS+1))
+else
+  RESULTS+=("FAIL  init_outbound_run creates run directory  (expected passed=true, got passed=$_INIT_PASSED)")
+  FAIL=$((FAIL+1))
+fi
+
+_INIT_TOOL_SCHEMA="$("$PYTHON" -c "import sys, json; print(json.loads(sys.stdin.read()).get('schema_version', ''))" <<<"$_INIT_OUT_JSON")"
+if [ "$_INIT_TOOL_SCHEMA" = "2" ]; then
+  RESULTS+=("PASS  init_outbound_run tool stdout schema_version=2")
+  PASS=$((PASS+1))
+else
+  RESULTS+=("FAIL  init_outbound_run tool stdout schema_version=2  (expected 2, got '$_INIT_TOOL_SCHEMA')")
+  FAIL=$((FAIL+1))
+fi
+
+_INIT_RUN_DIR="$("$PYTHON" -c "import sys, json; print(json.loads(sys.stdin.read()).get('run_dir', ''))" <<<"$_INIT_OUT_JSON")"
+_INIT_MANIFEST="$("$PYTHON" -c '
+import json, sys
+from pathlib import Path
+run_dir = Path(sys.argv[1])
+print(json.dumps(json.loads((run_dir / "RUN.json").read_text(encoding="utf-8"))))
+' "$_INIT_RUN_DIR")"
+_INIT_SKILL="$("$PYTHON" -c "import sys, json; print(json.loads(sys.stdin.read()).get('skill', ''))" <<<"$_INIT_MANIFEST")"
+_INIT_SCHEMA="$("$PYTHON" -c "import sys, json; print(json.loads(sys.stdin.read()).get('schema_version', ''))" <<<"$_INIT_MANIFEST")"
+if [ "$_INIT_SCHEMA" = "2" ]; then
+  RESULTS+=("PASS  init_outbound_run RUN.json schema_version=2")
+  PASS=$((PASS+1))
+else
+  RESULTS+=("FAIL  init_outbound_run RUN.json schema_version=2  (expected 2, got '$_INIT_SCHEMA')")
+  FAIL=$((FAIL+1))
+fi
+if [ "$_INIT_SKILL" = "linkedin-outbound" ]; then
+  RESULTS+=("PASS  init_outbound_run RUN.json skill=linkedin-outbound")
+  PASS=$((PASS+1))
+else
+  RESULTS+=("FAIL  init_outbound_run RUN.json skill=linkedin-outbound  (expected linkedin-outbound, got '$_INIT_SKILL')")
+  FAIL=$((FAIL+1))
+fi
+rm -rf "$_INIT_OUT" 2>/dev/null || true
 
 # --- Summary ---
 echo

@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ run.skill }} · {{ run.campaign }} · {{ run.run_id }}</title>
+  {% if run.status == 'in_progress' %}
+  <meta http-equiv="refresh" content="5">
+  {% endif %}
+  {% include '_css.html.j2' %}
+</head>
+<body>
+{% set approved_count = run.items|length %}
+{% set rejected_count = run.rejected_items|length %}
+{% set funnel_max = run.funnel[0][1] if run.funnel else 1 %}
+{% if funnel_max == 0 %}{% set funnel_max = 1 %}{% endif %}
+
+<header>
+  <h1>{{ run.campaign }}</h1>
+  <p class="run-meta">
+    <span>{{ run.skill }}</span>
+    <span>{{ run.run_id }}</span>
+    {% if run.started_at %}<span>{{ run.started_at }}</span>{% endif %}
+    {% if run.completed_at %}<span>completed {{ run.completed_at }}</span>{% endif %}
+  </p>
+
+  {% if run.status == 'in_progress' %}
+  <div class="banner banner-busy" role="status">
+    <strong>⏳ Run in progress</strong>
+    <p>This page refreshes every 5s while the pipeline is running.</p>
+  </div>
+  {% elif run.status == 'stalled' %}
+  <div class="banner banner-warn" role="status">
+    <strong>⚠ No state changes recently</strong>
+    <p>The pipeline may have crashed. Check prospect_state.jsonl and MCP availability.</p>
+  </div>
+  {% elif run.status == 'partial' %}
+  <div class="banner banner-warn" role="status">
+    <strong>⚠ Partial run</strong>
+    <p>Some phase artifacts are missing; sections below may be incomplete.</p>
+  </div>
+  {% endif %}
+
+  {% if run.warnings %}
+  <div class="banner banner-warn">
+    <strong>⚠ Warnings</strong>
+    <ul class="warnings-list">
+      {% for w in run.warnings %}
+      <li>{{ w }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+</header>
+
+<main>
+  {% if run.funnel %}
+  <section class="funnel" aria-labelledby="funnel-heading">
+    <h2 id="funnel-heading">Funnel</h2>
+    <div
+      class="funnel-bars"
+      role="img"
+      aria-label="Funnel: {% for stage, count in run.funnel %}{{ stage }} {{ count }}{% if not loop.last %}, {% endif %}{% endfor %}"
+    >
+      {% for stage, count in run.funnel %}
+      {% set pct = (count * 100 / funnel_max)|round(0, 'floor') %}
+      {% if pct < 1 and count > 0 %}{% set pct = 1 %}{% endif %}
+      <div class="funnel-segment" style="flex: {{ count }} 1 0; min-width: {{ pct }}%;" title="{{ stage }}: {{ count }}">
+        {% if count > 0 and pct >= 8 %}
+        <span class="funnel-segment-label">{{ count }}</span>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    <ul class="funnel-legend">
+      {% for stage, count in run.funnel %}
+      {% set pct = (count * 100 / funnel_max)|round(1) %}
+      <li><span class="label">{{ stage }}</span> {{ count }} ({{ pct }}%)</li>
+      {% endfor %}
+    </ul>
+    <table class="visually-hidden">
+      <caption>Funnel stage counts</caption>
+      <thead>
+        <tr><th scope="col">Stage</th><th scope="col">Count</th></tr>
+      </thead>
+      <tbody>
+        {% for stage, count in run.funnel %}
+        <tr><td>{{ stage }}</td><td>{{ count }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% endif %}
+
+  {% macro status_badge(item) -%}
+    {% set st = item.status|lower %}
+    {% if st == 'approved' %}
+      <span class="badge badge-ok">APPROVED</span>
+    {% elif st == 'rejected' %}
+      <span class="badge badge-bad">REJECTED</span>
+    {% elif st == 'in_progress' %}
+      {% set round_n = item.metadata.get('current_round') or item.metadata.get('round') or item.rounds|length %}
+      {% set max_rounds = item.metadata.get('max_rounds', 3) %}
+      <span class="badge badge-busy">IN PROGRESS · round {{ round_n }}/{{ max_rounds }}</span>
+    {% elif st == 'stalled' %}
+      <span class="badge badge-warn">STALLED</span>
+    {% elif st == 'inconclusive' %}
+      <span class="badge badge-muted">INCONCLUSIVE</span>
+    {% elif st == 'partial' %}
+      <span class="badge badge-warn">PARTIAL</span>
+    {% else %}
+      <span class="badge badge-muted">{{ item.status|upper }}</span>
+    {% endif %}
+  {%- endmacro %}
+
+  {% macro latest_round(item) -%}
+    {{ item.rounds[-1] if item.rounds else none }}
+  {%- endmacro %}
+
+  {% macro item_blocker(item) -%}
+    {%- if item.metadata.get('primary_blocker') -%}
+      {{- item.metadata.get('primary_blocker') -}}
+    {%- elif item.metadata.get('rejection_pattern') -%}
+      {{- item.metadata.get('rejection_pattern') -}}
+    {%- elif item.metadata.get('blockers') -%}
+      {{- item.metadata.get('blockers').split(';')[0].strip() -}}
+    {%- else -%}
+      {%- set lr = latest_round(item) -%}
+      {%- set ns = namespace(label='') -%}
+      {%- if lr and lr.scores -%}
+        {%- for score in lr.scores|reverse -%}
+          {%- if not ns.label and score.verdict in ['not ready', 'inconclusive'] and score.persona -%}
+            {%- if score.weaknesses -%}
+              {%- set ns.label = score.persona ~ ': ' ~ score.weaknesses[0] -%}
+            {%- else -%}
+              {%- set ns.label = score.persona ~ ': ' ~ score.verdict -%}
+            {%- endif -%}
+          {%- endif -%}
+        {%- endfor -%}
+      {%- endif -%}
+      {%- if not ns.label and lr and lr.checks -%}
+        {%- for check in lr.checks|reverse -%}
+          {%- if not ns.label and not check.passed -%}
+            {%- set ns.label = 'verification: ' ~ check.name -%}
+          {%- endif -%}
+        {%- endfor -%}
+      {%- endif -%}
+      {{- ns.label or 'unknown blocker' -}}
+    {%- endif -%}
+  {%- endmacro %}
+
+  {% macro prospect_card(item) -%}
+  {% set lr = latest_round(item) %}
+  {% set channel = item.metadata.get('channel', '') %}
+  {% set profile_url = item.metadata.get('profile_url') or item.metadata.get('profileUrl') or item.metadata.get('linkedin_url') %}
+  {% set company = item.metadata.get('company', item.subtitle) %}
+  {% set display_message = item.final_message or (lr.message if lr else '') %}
+  {% set msg_len = display_message|length if display_message else 0 %}
+  {% set copy_label = 'Copy message to ' ~ item.title ~ (' at ' ~ company if company else '') %}
+  <details class="prospect-card" id="prospect-{{ item.slug }}">
+    <summary>
+      <div class="card-header-row">
+        <span class="card-slug">{{ item.slug }}</span>
+        <button
+          type="button"
+          class="slug-link"
+          data-slug-link="#prospect-{{ item.slug }}"
+          aria-label="Copy link to prospect {{ item.slug }}"
+        >#</button>
+        {{ status_badge(item) }}
+        {% if channel %}<span class="card-meta-inline">{{ channel }}</span>{% endif %}
+        {% if msg_len %}<span class="card-meta-inline">{{ msg_len }} chars</span>{% endif %}
+      </div>
+    </summary>
+    <div class="card-body">
+      <section class="card-section" aria-labelledby="cta-{{ item.slug }}">
+        <div class="label" id="cta-{{ item.slug }}">Next step</div>
+        <div class="cta-row">
+          {% if display_message and item.status|lower == 'approved' %}
+          <button
+            type="button"
+            class="btn-copy"
+            data-copy-text="{{ display_message }}"
+            data-copy-slug="{{ item.slug }}"
+            aria-label="{{ copy_label }}"
+          >[copy message]</button>
+          {% endif %}
+          {% if profile_url %}
+          <a href="{{ profile_url }}">Open profile ↗</a>
+          {% endif %}
+          {% if item.status|lower == 'rejected' and item.next_step_cta %}
+          <button
+            type="button"
+            class="btn-copy"
+            data-copy-text="{{ item.next_step_cta }}"
+            data-copy-slug="{{ item.slug }}-retry"
+            aria-label="Copy retry command for {{ item.title }}"
+          >[copy CLI]</button>
+          {% endif %}
+        </div>
+        {% if item.next_step_cta and item.status|lower != 'rejected' %}
+        <p class="cta-text">{{ item.next_step_cta }}</p>
+        {% elif item.status|lower == 'in_progress' %}
+        {% set round_n = item.metadata.get('current_round') or item.metadata.get('round') or item.rounds|length %}
+        {% set max_rounds = item.metadata.get('max_rounds', 3) %}
+        <p class="cta-text">Round {{ round_n }} of {{ max_rounds }} in flight.</p>
+        {% elif item.status|lower == 'rejected' %}
+        {% if item.next_step_cta %}
+        <p class="cta-text">{{ item.next_step_cta }}</p>
+        {% elif lr and lr.scores %}
+        <p class="cta-text">Top blockers:
+          {%- set shown = namespace(n=0) -%}
+          {%- for score in lr.scores -%}
+            {%- if score.weaknesses and shown.n < 3 -%}
+              {%- if shown.n > 0 %}; {% endif -%}{{ score.persona }}: {{ score.weaknesses[0] }}
+              {%- set shown.n = shown.n + 1 -%}
+            {%- endif -%}
+          {%- endfor -%}
+        </p>
+        {% endif %}
+        {% endif %}
+      </section>
+
+      {% if display_message %}
+      <section class="card-section" aria-labelledby="msg-{{ item.slug }}">
+        <div class="label" id="msg-{{ item.slug }}">Final message</div>
+        {% if item.metadata.get('message_length') or channel %}
+        <p class="message-meta">
+          {% if item.metadata.get('message_length') %}{{ item.metadata.message_length }}{% elif msg_len %}{{ msg_len }} chars{% endif %}
+          {% if channel %} · {{ channel }}{% endif %}
+        </p>
+        {% endif %}
+        <div class="message-block">{{ display_message }}</div>
+      </section>
+      {% endif %}
+
+      <section class="card-section" aria-labelledby="profile-{{ item.slug }}">
+        <div class="label" id="profile-{{ item.slug }}">Profile</div>
+        <p class="profile-line">
+          <strong>{{ item.title }}</strong>
+          {% if item.subtitle %} · {{ item.subtitle }}{% endif %}
+          {% if profile_url %}
+          · <a href="{{ profile_url }}">LinkedIn ↗</a>
+          {% endif %}
+        </p>
+        {% for key, val in item.metadata.items() if key.startswith('profile_') and key not in ('profile_url',) %}
+        <p class="profile-line">{{ key|replace('profile_', '')|replace('_', ' ') }}: {{ val }}</p>
+        {% endfor %}
+      </section>
+
+      {% set fit_score = item.metadata.get('fit_score') or item.metadata.get('fitScore') %}
+      {% set fit_detail = item.metadata.get('fit_detail') or item.metadata.get('reasonMatchedIcp') or item.metadata.get('qualification') %}
+      {% if fit_score or fit_detail %}
+      <section class="card-section" aria-labelledby="fit-{{ item.slug }}">
+        <div class="label" id="fit-{{ item.slug }}">Fit (qualification)</div>
+        <p class="profile-line">
+          {% if fit_score %}score {{ fit_score }}/10{% endif %}
+          {% if fit_detail %} — {{ fit_detail }}{% endif %}
+        </p>
+      </section>
+      {% endif %}
+
+      {% if lr and lr.scores %}
+      <section class="card-section" aria-labelledby="scores-{{ item.slug }}">
+        <div class="label" id="scores-{{ item.slug }}">Persona scorecard</div>
+        {% set score_rows = lr.scores|length %}
+        <table{% if score_rows > 5 %} class="zebra"{% endif %}>
+          <thead>
+            <tr>
+              <th scope="col">Persona</th>
+              <th scope="col" class="num">Score</th>
+              <th scope="col">Verdict</th>
+              <th scope="col">Summary</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for score in lr.scores %}
+            <tr>
+              <td>{{ score.persona }}</td>
+              <td class="num">{% if score.score is not none %}{{ score.score }}/10{% else %}—{% endif %}</td>
+              <td>
+                {% if score.verdict|lower == 'inconclusive' %}
+                <span class="badge badge-muted">INCONCLUSIVE</span>
+                {% else %}
+                {{ score.verdict }}
+                {% endif %}
+              </td>
+              <td>{{ score.summary }}{% if score.weaknesses %} — {{ score.weaknesses|join('; ') }}{% endif %}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+      {% endif %}
+
+      {% if lr and lr.checks %}
+      <section class="card-section" aria-labelledby="verify-{{ item.slug }}">
+        <div class="label" id="verify-{{ item.slug }}">Verification</div>
+        <div class="verification-row">
+          {% for check in lr.checks %}
+          <span class="{% if check.passed %}check-ok{% else %}check-bad{% endif %}">
+            {% if check.passed %}✓{% else %}✗{% endif %} {{ check.name }}{% if check.detail %}: {{ check.detail }}{% endif %}
+          </span>
+          {% endfor %}
+        </div>
+      </section>
+      {% endif %}
+
+      {% if item.rounds|length >= 2 %}
+      {% set first_round = item.rounds[0] %}
+      {% set last_round = item.rounds[-1] %}
+      {% if first_round.message != last_round.message or item.metadata.get('diff_html') %}
+      <details class="nested-details card-section">
+        <summary>Round diff ({{ first_round.n }} → {{ last_round.n }})</summary>
+        <div class="nested-body round-diff">
+          {% if item.metadata.get('diff_html') %}
+          {{ item.metadata.diff_html|safe }}
+          {% else %}
+          {% set old_lines = first_round.message.splitlines() %}
+          {% set new_lines = last_round.message.splitlines() %}
+          <pre>{% for line in old_lines -%}
+{%- if line not in new_lines -%}
+<span class="diff-line diff-del">- {{ line }}</span>
+{%- else -%}
+<span class="diff-line diff-ctx">  {{ line }}</span>
+{%- endif -%}
+{%- endfor -%}
+{%- for line in new_lines -%}
+{%- if line not in old_lines -%}
+<span class="diff-line diff-add">+ {{ line }}</span>
+{%- endif -%}
+{%- endfor -%}</pre>
+          {% endif %}
+        </div>
+      </details>
+      {% endif %}
+      {% endif %}
+
+      {% if item.rounds %}
+      <details class="nested-details card-section">
+        <summary>Persona traces</summary>
+        <div class="nested-body">
+          {% for rnd in item.rounds %}
+          {% if rnd.traces %}
+          <details class="nested-details">
+            <summary>Round {{ rnd.n }}</summary>
+            <div class="nested-body">
+              {% for trace in rnd.traces %}
+              <details class="nested-details trace-block">
+                <summary>{{ trace.persona }}{% if trace.truncated %} (truncated){% endif %}</summary>
+                <div class="nested-body">
+                  {% if trace.raw_path %}
+                  <p class="cta-text">Full trace: {{ trace.raw_path }}</p>
+                  {% endif %}
+                  <div class="label">Prompt</div>
+                  <pre><code>{{ trace.prompt | secure }}</code></pre>
+                  <div class="label">Response</div>
+                  <pre><code>{{ trace.response | secure }}</code></pre>
+                </div>
+              </details>
+              {% endfor %}
+            </div>
+          </details>
+          {% endif %}
+          {% endfor %}
+        </div>
+      </details>
+      {% endif %}
+    </div>
+  </details>
+  {%- endmacro %}
+
+  <section aria-labelledby="approved-heading">
+    <h2 id="approved-heading">Approved ({{ approved_count }})</h2>
+
+    {% if approved_count == 0 %}
+    <div class="empty-state" role="status">
+      {% set enriched_total = run.funnel[0][1] if run.funnel else (approved_count + rejected_count) %}
+      <p><strong>0 prospects qualified out of {{ enriched_total }} enriched.</strong></p>
+      {% if run.rejection_patterns %}
+      <p>The top rejection reasons were:</p>
+      <ul>
+        {% for pattern, count in run.rejection_patterns[:3] %}
+        <li>{{ pattern }} (×{{ count }})</li>
+        {% endfor %}
+      </ul>
+      <p class="hint">Either widen the ICP or recheck the URL list.</p>
+      <p class="hint">→ 03_qualification/rejected_prospects.json</p>
+      {% else %}
+      <p class="hint">No approved items yet.</p>
+      {% endif %}
+    </div>
+    {% else %}
+    {% for item in run.items %}
+    {{ prospect_card(item) }}
+    {% endfor %}
+    {% endif %}
+  </section>
+
+  {% if run.rejected_items %}
+  <section aria-labelledby="rejected-heading">
+    <h2 id="rejected-heading">Rejected ({{ rejected_count }})</h2>
+
+    {% if run.rejection_patterns %}
+      {% for pattern, count in run.rejection_patterns %}
+      <h3 class="rejection-group-header">{{ count }} rejected for {{ pattern }}</h3>
+      {% for item in run.rejected_items %}
+        {% if item_blocker(item) == pattern %}
+        {{ prospect_card(item) }}
+        {% endif %}
+      {% endfor %}
+      {% endfor %}
+      {% set other_ns = namespace(show=false) %}
+      {% for item in run.rejected_items %}
+        {% set blocker = item_blocker(item) %}
+        {% set match_ns = namespace(found=false) %}
+        {% for pattern, count in run.rejection_patterns %}
+          {% if blocker == pattern %}
+            {% set match_ns.found = true %}
+          {% endif %}
+        {% endfor %}
+        {% if not match_ns.found %}
+          {% set other_ns.show = true %}
+        {% endif %}
+      {% endfor %}
+      {% if other_ns.show %}
+      <h3 class="rejection-group-header">Other rejections</h3>
+      {% for item in run.rejected_items %}
+        {% set blocker = item_blocker(item) %}
+        {% set match_ns = namespace(found=false) %}
+        {% for pattern, count in run.rejection_patterns %}
+          {% if blocker == pattern %}
+            {% set match_ns.found = true %}
+          {% endif %}
+        {% endfor %}
+        {% if not match_ns.found %}
+        {{ prospect_card(item) }}
+        {% endif %}
+      {% endfor %}
+      {% endif %}
+    {% else %}
+      {% set ns = namespace(prev='') %}
+      {% for item in run.rejected_items %}
+        {% set blocker = item_blocker(item) %}
+        {% if blocker != ns.prev %}
+          {% set ns.prev = blocker %}
+          <h3 class="rejection-group-header">Rejected for {{ blocker }}</h3>
+        {% endif %}
+        {{ prospect_card(item) }}
+      {% endfor %}
+    {% endif %}
+  </section>
+  {% endif %}
+</main>
+
+<footer>
+  <p>Report schema v{{ run.schema_version }} · {{ run.skill }} · {{ run.run_id }}</p>
+  {% if run.manifest_path %}<p>{{ run.manifest_path }}</p>{% endif %}
+</footer>
+
+{% include '_js.html.j2' %}
+</body>
+</html>

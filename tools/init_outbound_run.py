@@ -29,11 +29,11 @@ import os
 import re
 import shutil
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 TOOL_NAME = "init_outbound_run"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 DEFAULT_BASE_DIR = "review-stage/outbound"
 
 PHASE_DIRS = [
@@ -51,6 +51,15 @@ PHASE_DIRS = [
 
 def now_stamp() -> str:
     return datetime.now().strftime("%Y%m%d_%H%M%S")
+
+
+def now_iso() -> str:
+    return (
+        datetime.now(timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
 
 
 def slugify(s: str) -> str:
@@ -166,6 +175,9 @@ def main(argv: list[str]) -> int:
     run_manifest = {
         "tool": TOOL_NAME,
         "schema_version": SCHEMA_VERSION,
+        "skill": "linkedin-outbound",
+        "status": "in_progress",
+        "started_at": now_iso(),
         "run_id": run_id,
         "source_campaign": str(campaign_path),
         "campaign_name": campaign_path.stem,

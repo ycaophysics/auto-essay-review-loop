@@ -9,7 +9,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from jinja2 import Environment, FileSystemLoader, select_autoescape
+from jinja2 import Environment, FileSystemLoader
 from markupsafe import Markup, escape
 
 from . import _helpers
@@ -69,7 +69,9 @@ def infer_skill_from_path(run_dir: Path) -> str | None:
     return None
 
 
-def _autoescape_with_mask(value) -> Markup:
+def _escape_and_mask(value) -> Markup:
+    if value is None:
+        return Markup("")
     return Markup(_helpers.mask_secrets(escape(str(value))))
 
 
@@ -77,10 +79,11 @@ def make_jinja_env(templates_dir: Path) -> Environment:
     """Jinja2 environment: autoescape ON, mask_secrets chained after escape."""
     env = Environment(
         loader=FileSystemLoader(str(templates_dir)),
-        autoescape=select_autoescape(["html", "xml", "j2"]),
+        autoescape=True,
     )
     env.filters["mask_secrets"] = _helpers.mask_secrets
-    env.policies["html.autoescape"] = _autoescape_with_mask
+    env.filters["escape"] = _escape_and_mask
+    env.filters["secure"] = _escape_and_mask
     return env
 
 

@@ -1,0 +1,148 @@
+<script>
+(function () {
+  "use strict";
+
+  var STORAGE_KEY = "auto-review-report-copied";
+
+  function readCopiedSlugs() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) {
+        return [];
+      }
+      var parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function writeCopiedSlugs(slugs) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(slugs));
+    } catch (e) {
+      /* ignore quota / private mode */
+    }
+  }
+
+  function markPersistedCopyButtons() {
+    var slugs = readCopiedSlugs();
+    if (!slugs.length) {
+      return;
+    }
+    document.querySelectorAll("[data-copy-slug]").forEach(function (btn) {
+      var slug = btn.getAttribute("data-copy-slug");
+      if (slug && slugs.indexOf(slug) !== -1) {
+        btn.classList.add("is-persisted");
+      }
+    });
+  }
+
+  function flashCopied(btn) {
+    if (!btn || !btn.getAttribute("data-copy-text")) {
+      return;
+    }
+    var original = btn.getAttribute("data-label-default") || btn.textContent;
+    if (!btn.getAttribute("data-label-default")) {
+      btn.setAttribute("data-label-default", original);
+    }
+    btn.classList.add("is-copied");
+    btn.textContent = "[copied]";
+    window.setTimeout(function () {
+      btn.classList.remove("is-copied");
+      btn.textContent = btn.getAttribute("data-label-default") || original;
+    }, 2000);
+  }
+
+  function persistSlug(slug) {
+    if (!slug) {
+      return;
+    }
+    var slugs = readCopiedSlugs();
+    if (slugs.indexOf(slug) === -1) {
+      slugs.push(slug);
+      writeCopiedSlugs(slugs);
+    }
+  }
+
+  function copyText(text, btn, slug) {
+    if (!text) {
+      return;
+    }
+    function onSuccess() {
+      if (btn && btn.hasAttribute("data-copy-text")) {
+        flashCopied(btn);
+      }
+      if (slug) {
+        persistSlug(slug);
+        if (btn) {
+          btn.classList.add("is-persisted");
+        }
+      }
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(onSuccess).catch(function () {
+        fallbackCopy(text, onSuccess);
+      });
+    } else {
+      fallbackCopy(text, onSuccess);
+    }
+  }
+
+  function fallbackCopy(text, onSuccess) {
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "absolute";
+    ta.style.left = "-9999px";
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand("copy");
+      onSuccess();
+    } catch (e) {
+      /* ignore */
+    }
+    document.body.removeChild(ta);
+  }
+
+  document.addEventListener("click", function (ev) {
+    var btn = ev.target.closest("[data-copy-text]");
+    if (btn) {
+      ev.preventDefault();
+      copyText(
+        btn.getAttribute("data-copy-text") || "",
+        btn,
+        btn.getAttribute("data-copy-slug") || ""
+      );
+      return;
+    }
+
+    var slugBtn = ev.target.closest("[data-slug-link]");
+    if (slugBtn) {
+      ev.preventDefault();
+      var hash = slugBtn.getAttribute("data-slug-link") || "";
+      var url = window.location.href.split("#")[0] + hash;
+      copyText(url, null, null);
+    }
+  });
+
+  function expandFromHash() {
+    var hash = window.location.hash;
+    if (!hash || hash.indexOf("#prospect-") !== 0) {
+      return;
+    }
+    var card = document.querySelector(hash);
+    if (card && card.tagName === "DETAILS") {
+      card.open = true;
+      if (card.scrollIntoView) {
+        card.scrollIntoView({ block: "start" });
+      }
+    }
+  }
+
+  markPersistedCopyButtons();
+  expandFromHash();
+  window.addEventListener("hashchange", expandFromHash);
+})();
+</script>

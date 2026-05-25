@@ -69,7 +69,11 @@
   {% endif %}
   {% if ready_count > 0 %}
   {% set first_ready = ready_items|first %}
+  {% if run.skill == 'linkedin-outbound' %}
   <p class="run-summary-action">Start with <a href="#prospect-{{ first_ready.slug }}">{{ first_ready.title }}</a> — copy the message, open LinkedIn, send.</p>
+  {% else %}
+  <p class="run-summary-action">Start with <a href="#prospect-{{ first_ready.slug }}">{{ first_ready.title }}</a> — review the approved draft below.</p>
+  {% endif %}
   {% elif progress_count > 0 %}
   <p class="run-summary-action">No messages approved yet. {{ progress_count }} prospect(s) still in review — check back when the pipeline finishes.</p>
   {% elif rejected_count > 0 %}
@@ -202,6 +206,7 @@
         <div class="label" id="cta-{{ item.slug }}">Next step</div>
         <div class="cta-row">
           {% if display_message and st == 'approved' %}
+          {% if run.skill == 'linkedin-outbound' %}
           <button
             type="button"
             class="btn-copy btn-primary"
@@ -209,8 +214,19 @@
             data-copy-slug="{{ item.slug }}"
             aria-label="{{ copy_label }}"
           >Copy message</button>
-          {% endif %}
           {% if profile_url %}
+          <a class="btn-link" href="{{ profile_url }}">Open LinkedIn ↗</a>
+          {% endif %}
+          {% else %}
+          <button
+            type="button"
+            class="btn-copy btn-primary"
+            data-copy-text="{{ display_message }}"
+            data-copy-slug="{{ item.slug }}"
+            aria-label="Copy approved draft for {{ item.title }}"
+          >Copy draft</button>
+          {% endif %}
+          {% elif profile_url and run.skill == 'linkedin-outbound' %}
           <a class="btn-link" href="{{ profile_url }}">Open LinkedIn ↗</a>
           {% endif %}
           {% if st == 'rejected' and item.metadata.get('retry_cli') %}
@@ -423,12 +439,20 @@
 
     {% if run.rejection_patterns %}
       {% for pattern, count in run.rejection_patterns %}
+      {% set group_ns = namespace(has_items=false) %}
+      {% for item in run.rejected_items %}
+        {% if item_blocker(item) == pattern %}
+          {% set group_ns.has_items = true %}
+        {% endif %}
+      {% endfor %}
+      {% if group_ns.has_items %}
       <h3 class="rejection-group-header">{{ count }} rejected for {{ pattern }}</h3>
       {% for item in run.rejected_items %}
         {% if item_blocker(item) == pattern %}
         {{ prospect_card(item) }}
         {% endif %}
       {% endfor %}
+      {% endif %}
       {% endfor %}
       {% set other_ns = namespace(show=false) %}
       {% for item in run.rejected_items %}

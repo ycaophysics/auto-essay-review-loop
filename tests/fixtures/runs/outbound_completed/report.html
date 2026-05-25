@@ -290,6 +290,45 @@ header {
   gap: var(--space-2);
 }
 
+.card-title {
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.card-subtitle {
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.card-slug-muted {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--text-faint);
+}
+
+.run-summary {
+  margin: 0 0 var(--space-6);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  background: var(--bg-elev-1);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.run-summary-action {
+  margin: var(--space-2) 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.run-summary a {
+  color: var(--status-busy);
+  font-weight: 600;
+}
+
 .card-slug {
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 13px;
@@ -361,7 +400,29 @@ a:focus {
   background: var(--bg);
   color: var(--text-primary);
   font: inherit;
+  font-size: 13px;
   cursor: pointer;
+}
+
+.btn-copy.btn-primary {
+  border-color: var(--status-ok);
+  background: var(--status-ok-bg);
+  color: var(--status-ok);
+  font-weight: 600;
+}
+
+.btn-link {
+  display: inline-block;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-primary);
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.btn-link:hover {
+  background: var(--bg-elev-1);
 }
 
 .btn-copy:hover {
@@ -379,7 +440,7 @@ a:focus {
 }
 
 .btn-copy.is-persisted::after {
-  content: " [✓ copied]";
+  content: " ✓ sent";
   font-size: 11px;
 }
 
@@ -579,6 +640,9 @@ footer {
 
 
 
+
+
+
 <header>
   <h1>outbound-happy</h1>
   <p class="run-meta">
@@ -592,6 +656,26 @@ footer {
 
   
 </header>
+
+
+<div class="run-summary" role="status" aria-live="polite">
+  
+  <strong>1 ready to send</strong> · 
+  
+  
+  1 in review · 
+  
+  
+  1 rejected
+  
+  
+  
+  
+  <p class="run-summary-action">Start with <a href="#prospect-example-founder">Chris Example</a> — copy the message, open LinkedIn, send.</p>
+  
+  
+</div>
+
 
 <main>
   
@@ -664,10 +748,8 @@ footer {
 
   
 
-  
-
-  <section aria-labelledby="approved-heading">
-    <h2 id="approved-heading">Approved (2)</h2>
+  <section aria-labelledby="ready-heading">
+    <h2 id="ready-heading">Ready to send (1)</h2>
 
     
     
@@ -678,22 +760,26 @@ footer {
   
   
   
-  <details class="prospect-card" id="prospect-example-founder">
+  
+  <details class="prospect-card" id="prospect-example-founder" open>
     <summary>
       <div class="card-header-row">
-        <span class="card-slug">example-founder</span>
-        <button
-          type="button"
-          class="slug-link"
-          data-slug-link="#prospect-example-founder"
-          aria-label="Copy link to prospect example-founder"
-        >#</button>
+        <span class="card-title">Chris Example</span>
+        <span class="card-subtitle">Founder · Amiara</span>
         
     
       <span class="badge badge-ok">APPROVED</span>
     
         <span class="card-meta-inline">linkedin_connection</span>
         <span class="card-meta-inline">93 chars</span>
+        <span class="card-slug-muted">example-founder</span>
+        <button
+          type="button"
+          class="slug-link"
+          data-slug-link="#prospect-example-founder"
+          aria-label="Copy link to prospect example-founder"
+          title="Copy deep link"
+        >Link</button>
       </div>
     </summary>
     <div class="card-body">
@@ -701,21 +787,23 @@ footer {
         <div class="label" id="cta-example-founder">Next step</div>
         <div class="cta-row">
           
+          
           <button
             type="button"
-            class="btn-copy"
+            class="btn-copy btn-primary"
             data-copy-text="Hi Chris, your remote staffing work at Amiara caught my eye. Open to a 10-min call next week?"
             data-copy-slug="example-founder"
             aria-label="Copy message to Chris Example at Founder · Amiara"
-          >[copy message]</button>
+          >Copy message</button>
+          
+          <a class="btn-link" href="https://www.linkedin.com/in/example-founder/">Open LinkedIn ↗</a>
           
           
-          <a href="https://www.linkedin.com/in/example-founder/">Open profile ↗</a>
           
           
         </div>
         
-        <p class="cta-text">Copy message and open LinkedIn profile: https://www.linkedin.com/in/example-founder/</p>
+        <p class="cta-text">Copy the message below, then open their LinkedIn profile and send.</p>
         
       </section>
 
@@ -757,7 +845,92 @@ footer {
       
 
       
+      <section class="card-section" aria-labelledby="scores-example-founder">
+        <div class="label" id="scores-example-founder">Persona scorecard</div>
+        
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Persona</th>
+              <th scope="col" class="num">Score</th>
+              <th scope="col">Verdict</th>
+              <th scope="col">Summary</th>
+            </tr>
+          </thead>
+          <tbody>
+            
+            <tr>
+              <td>compliance-reviewer</td>
+              <td class="num">9/10</td>
+              <td>
+                
+                ready
+                
+              </td>
+              <td>ok</td>
+            </tr>
+            
+            <tr>
+              <td>sales-leader</td>
+              <td class="num">7/10</td>
+              <td>
+                
+                ready
+                
+              </td>
+              <td>ok</td>
+            </tr>
+            
+            <tr>
+              <td>spam-filter</td>
+              <td class="num">8/10</td>
+              <td>
+                
+                ready
+                
+              </td>
+              <td>ok</td>
+            </tr>
+            
+            <tr>
+              <td>target-customer</td>
+              <td class="num">9/10</td>
+              <td>
+                
+                ready
+                
+              </td>
+              <td>ok</td>
+            </tr>
+            
+          </tbody>
+        </table>
+      </section>
+      
 
+      
+      <section class="card-section" aria-labelledby="verify-example-founder">
+        <div class="label" id="verify-example-founder">Verification</div>
+        <div class="verification-row">
+          
+          <span class="check-ok">
+            ✓ message_length: 232/300
+          </span>
+          
+          <span class="check-ok">
+            ✓ evidence_count: 2
+          </span>
+          
+          <span class="check-ok">
+            ✓ forbidden_claims: none
+          </span>
+          
+          <span class="check-ok">
+            ✓ channel_authorized: ok
+          </span>
+          
+        </div>
+      </section>
       
 
       
@@ -815,6 +988,14 @@ footer {
   </details>
     
     
+  </section>
+
+  
+  <section aria-labelledby="progress-heading">
+    <h2 id="progress-heading">In review (1)</h2>
+    
+    
+  
   
   
   
@@ -824,19 +1005,24 @@ footer {
   <details class="prospect-card" id="prospect-example-progress">
     <summary>
       <div class="card-header-row">
-        <span class="card-slug">example-progress</span>
+        <span class="card-title">Sam Example</span>
+        <span class="card-subtitle">Founder · GammaInc</span>
+        
+    
+      
+      
+      <span class="badge badge-busy">IN PROGRESS · round 2/3</span>
+    
+        <span class="card-meta-inline">linkedin_connection</span>
+        
+        <span class="card-slug-muted">example-progress</span>
         <button
           type="button"
           class="slug-link"
           data-slug-link="#prospect-example-progress"
           aria-label="Copy link to prospect example-progress"
-        >#</button>
-        
-    
-      <span class="badge badge-muted">REVIEWING</span>
-    
-        <span class="card-meta-inline">linkedin_connection</span>
-        <span class="card-meta-inline">33 chars</span>
+          title="Copy deep link"
+        >Link</button>
       </div>
     </summary>
     <div class="card-body">
@@ -844,13 +1030,12 @@ footer {
         <div class="label" id="cta-example-progress">Next step</div>
         <div class="cta-row">
           
-          
-          <a href="https://www.linkedin.com/in/example-progress/">Open profile ↗</a>
+          <a class="btn-link" href="https://www.linkedin.com/in/example-progress/">Open LinkedIn ↗</a>
           
           
         </div>
         
-        <p class="cta-text">Round 2 of 3 in flight</p>
+        <p class="cta-text">Round 2 of 3 in flight — pipeline still reviewing this prospect.</p>
         
       </section>
 
@@ -892,7 +1077,92 @@ footer {
       
 
       
+      <section class="card-section" aria-labelledby="scores-example-progress">
+        <div class="label" id="scores-example-progress">Persona scorecard</div>
+        
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Persona</th>
+              <th scope="col" class="num">Score</th>
+              <th scope="col">Verdict</th>
+              <th scope="col">Summary</th>
+            </tr>
+          </thead>
+          <tbody>
+            
+            <tr>
+              <td>compliance-reviewer</td>
+              <td class="num">9/10</td>
+              <td>
+                
+                ready
+                
+              </td>
+              <td>ok</td>
+            </tr>
+            
+            <tr>
+              <td>sales-leader</td>
+              <td class="num">7/10</td>
+              <td>
+                
+                ready
+                
+              </td>
+              <td>ok</td>
+            </tr>
+            
+            <tr>
+              <td>spam-filter</td>
+              <td class="num">8/10</td>
+              <td>
+                
+                ready
+                
+              </td>
+              <td>ok</td>
+            </tr>
+            
+            <tr>
+              <td>target-customer</td>
+              <td class="num">9/10</td>
+              <td>
+                
+                ready
+                
+              </td>
+              <td>ok</td>
+            </tr>
+            
+          </tbody>
+        </table>
+      </section>
+      
 
+      
+      <section class="card-section" aria-labelledby="verify-example-progress">
+        <div class="label" id="verify-example-progress">Verification</div>
+        <div class="verification-row">
+          
+          <span class="check-ok">
+            ✓ message_length: 232/300
+          </span>
+          
+          <span class="check-ok">
+            ✓ evidence_count: 2
+          </span>
+          
+          <span class="check-ok">
+            ✓ forbidden_claims: none
+          </span>
+          
+          <span class="check-ok">
+            ✓ channel_authorized: ok
+          </span>
+          
+        </div>
+      </section>
       
 
       
@@ -916,14 +1186,21 @@ footer {
     </div>
   </details>
     
-    
   </section>
+  
 
   
   <section aria-labelledby="rejected-heading">
     <h2 id="rejected-heading">Rejected (1)</h2>
 
     
+      
+      
+      
+        
+          
+        
+      
       
       <h3 class="rejection-group-header">1 rejected for spam-filter: weak CTA</h3>
       
@@ -935,22 +1212,26 @@ footer {
   
   
   
+  
   <details class="prospect-card" id="prospect-example-rejected">
     <summary>
       <div class="card-header-row">
-        <span class="card-slug">example-rejected</span>
-        <button
-          type="button"
-          class="slug-link"
-          data-slug-link="#prospect-example-rejected"
-          aria-label="Copy link to prospect example-rejected"
-        >#</button>
+        <span class="card-title">Alex Example</span>
+        <span class="card-subtitle">Founder · BetaCo&lt;script&gt;alert(1)&lt;/script&gt;</span>
         
     
       <span class="badge badge-bad">REJECTED</span>
     
         <span class="card-meta-inline">linkedin_connection</span>
-        <span class="card-meta-inline">48 chars</span>
+        
+        <span class="card-slug-muted">example-rejected</span>
+        <button
+          type="button"
+          class="slug-link"
+          data-slug-link="#prospect-example-rejected"
+          aria-label="Copy link to prospect example-rejected"
+          title="Copy deep link"
+        >Link</button>
       </div>
     </summary>
     <div class="card-body">
@@ -958,23 +1239,20 @@ footer {
         <div class="label" id="cta-example-rejected">Next step</div>
         <div class="cta-row">
           
-          
-          <a href="https://www.linkedin.com/in/example-rejected/">Open profile ↗</a>
+          <a class="btn-link" href="https://www.linkedin.com/in/example-rejected/">Open LinkedIn ↗</a>
           
           
           <button
             type="button"
             class="btn-copy"
-            data-copy-text="Top blockers: spam-filter: weak CTA; target-customer: would_reply=no. Retry: bash tools/run.sh outbound_state.py update example-rejected - --out-dir=C:\Users\ycao\Documents\GitHub\auto-essay-review-loop\tests\fixtures\runs\outbound_completed"
+            data-copy-text="bash tools/run.sh outbound_state.py update example-rejected - --out-dir=."
             data-copy-slug="example-rejected-retry"
             aria-label="Copy retry command for Alex Example"
-          >[copy CLI]</button>
+          >Copy retry command</button>
           
         </div>
         
-        
-        <p class="cta-text">Top blockers: spam-filter: weak CTA; target-customer: would_reply=no. Retry: bash tools/run.sh outbound_state.py update example-rejected - --out-dir=C:\Users\ycao\Documents\GitHub\auto-essay-review-loop\tests\fixtures\runs\outbound_completed</p>
-        
+        <p class="cta-text">Top blockers: spam-filter: weak CTA; target-customer: would_reply=no.</p>
         
       </section>
 
@@ -1016,7 +1294,92 @@ footer {
       
 
       
+      <section class="card-section" aria-labelledby="scores-example-rejected">
+        <div class="label" id="scores-example-rejected">Persona scorecard</div>
+        
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Persona</th>
+              <th scope="col" class="num">Score</th>
+              <th scope="col">Verdict</th>
+              <th scope="col">Summary</th>
+            </tr>
+          </thead>
+          <tbody>
+            
+            <tr>
+              <td>compliance-reviewer</td>
+              <td class="num">9/10</td>
+              <td>
+                
+                ready
+                
+              </td>
+              <td>ok</td>
+            </tr>
+            
+            <tr>
+              <td>sales-leader</td>
+              <td class="num">5/10</td>
+              <td>
+                
+                not ready
+                
+              </td>
+              <td>ok</td>
+            </tr>
+            
+            <tr>
+              <td>spam-filter</td>
+              <td class="num">8/10</td>
+              <td>
+                
+                ready
+                
+              </td>
+              <td>ok</td>
+            </tr>
+            
+            <tr>
+              <td>target-customer</td>
+              <td class="num">4/10</td>
+              <td>
+                
+                not ready
+                
+              </td>
+              <td>ok</td>
+            </tr>
+            
+          </tbody>
+        </table>
+      </section>
+      
 
+      
+      <section class="card-section" aria-labelledby="verify-example-rejected">
+        <div class="label" id="verify-example-rejected">Verification</div>
+        <div class="verification-row">
+          
+          <span class="check-bad">
+            ✗ message_length: 232/300
+          </span>
+          
+          <span class="check-bad">
+            ✗ evidence_count: 2
+          </span>
+          
+          <span class="check-bad">
+            ✗ forbidden_claims: none
+          </span>
+          
+          <span class="check-bad">
+            ✗ channel_authorized: ok
+          </span>
+          
+        </div>
+      </section>
       
 
       
@@ -1053,6 +1416,7 @@ footer {
     </div>
   </details>
         
+      
       
       
       
@@ -1126,7 +1490,7 @@ footer {
       btn.setAttribute("data-label-default", original);
     }
     btn.classList.add("is-copied");
-    btn.textContent = "[copied]";
+    btn.textContent = "Copied";
     window.setTimeout(function () {
       btn.classList.remove("is-copied");
       btn.textContent = btn.getAttribute("data-label-default") || original;

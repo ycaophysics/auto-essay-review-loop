@@ -290,6 +290,45 @@ header {
   gap: var(--space-2);
 }
 
+.card-title {
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.card-subtitle {
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.card-slug-muted {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--text-faint);
+}
+
+.run-summary {
+  margin: 0 0 var(--space-6);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  background: var(--bg-elev-1);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.run-summary-action {
+  margin: var(--space-2) 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.run-summary a {
+  color: var(--status-busy);
+  font-weight: 600;
+}
+
 .card-slug {
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 13px;
@@ -361,7 +400,29 @@ a:focus {
   background: var(--bg);
   color: var(--text-primary);
   font: inherit;
+  font-size: 13px;
   cursor: pointer;
+}
+
+.btn-copy.btn-primary {
+  border-color: var(--status-ok);
+  background: var(--status-ok-bg);
+  color: var(--status-ok);
+  font-weight: 600;
+}
+
+.btn-link {
+  display: inline-block;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-primary);
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.btn-link:hover {
+  background: var(--bg-elev-1);
 }
 
 .btn-copy:hover {
@@ -379,7 +440,7 @@ a:focus {
 }
 
 .btn-copy.is-persisted::after {
-  content: " [✓ copied]";
+  content: " ✓ sent";
   font-size: 11px;
 }
 
@@ -579,6 +640,9 @@ footer {
 
 
 
+
+
+
 <header>
   <h1>Auto Review</h1>
   <p class="run-meta">
@@ -592,6 +656,22 @@ footer {
 
   
 </header>
+
+
+<div class="run-summary" role="status" aria-live="polite">
+  
+  <strong>1 ready to send</strong>
+  
+  
+  
+  
+  
+  
+  <p class="run-summary-action">Start with <a href="#prospect-essay-happy">Auto Review</a> — review the approved draft below.</p>
+  
+  
+</div>
+
 
 <main>
   
@@ -664,10 +744,8 @@ footer {
 
   
 
-  
-
-  <section aria-labelledby="approved-heading">
-    <h2 id="approved-heading">Approved (1)</h2>
+  <section aria-labelledby="ready-heading">
+    <h2 id="ready-heading">Ready to send (1)</h2>
 
     
     
@@ -678,29 +756,32 @@ footer {
   
   
   
-  <details class="prospect-card" id="prospect-essay-happy">
+  
+  <details class="prospect-card" id="prospect-essay-happy" open>
     <summary>
       <div class="card-header-row">
-        <span class="card-slug">essay-happy</span>
-        <button
-          type="button"
-          class="slug-link"
-          data-slug-link="#prospect-essay-happy"
-          aria-label="Copy link to prospect essay-happy"
-        >#</button>
+        <span class="card-title">Auto Review</span>
+        <span class="card-subtitle">essay</span>
         
     
       <span class="badge badge-ok">APPROVED</span>
     
         
         
+        <span class="card-slug-muted">essay-happy</span>
+        <button
+          type="button"
+          class="slug-link"
+          data-slug-link="#prospect-essay-happy"
+          aria-label="Copy link to prospect essay-happy"
+          title="Copy deep link"
+        >Link</button>
       </div>
     </summary>
     <div class="card-body">
       <section class="card-section" aria-labelledby="cta-essay-happy">
         <div class="label" id="cta-essay-happy">Next step</div>
         <div class="cta-row">
-          
           
           
         </div>
@@ -744,6 +825,8 @@ footer {
     
     
   </section>
+
+  
 
   
 </main>
@@ -802,7 +885,7 @@ footer {
       btn.setAttribute("data-label-default", original);
     }
     btn.classList.add("is-copied");
-    btn.textContent = "[copied]";
+    btn.textContent = "Copied";
     window.setTimeout(function () {
       btn.classList.remove("is-copied");
       btn.textContent = btn.getAttribute("data-label-default") || original;

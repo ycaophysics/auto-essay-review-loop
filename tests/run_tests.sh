@@ -374,7 +374,9 @@ rm -rf "$_ENRICH_OUT" 2>/dev/null || true
 
 # qualify_prospect: strong fixture qualifies (Founder + B2B SaaS + hiring SDRs
 # in about), weak fixture (no headline/role/company) is disqualified.
-_QUALIFY_OUT="$(mktemp -d -t auto-essay-qualify.XXXXXX 2>/dev/null || mktemp -d)"
+# Repo-relative temp dir: Git-Bash mktemp paths (/tmp/...) are invisible to Windows Python.
+_QUALIFY_OUT="$REPO_ROOT/tests/tmp/qualify_$$"
+mkdir -p "$_QUALIFY_OUT"
 assert_passed "qualify_prospect scores the strong fixture as qualified" "true" \
   bash tools/run.sh qualify_prospect.py tests/fixtures/outbound/normalized.json tests/fixtures/outbound/campaign.json --out-dir="$_QUALIFY_OUT"
 assert_metric "qualify_prospect emits qualified_count=1" "qualified_count" "1" \
@@ -382,7 +384,7 @@ assert_metric "qualify_prospect emits qualified_count=1" "qualified_count" "1" \
 assert_metric "qualify_prospect emits rejected_count=1" "rejected_count" "1" \
   bash tools/run.sh qualify_prospect.py tests/fixtures/outbound/normalized.json tests/fixtures/outbound/campaign.json --out-dir="$_QUALIFY_OUT"
 # qualified_prospects.json should contain the founder row at slug 'example-founder'.
-_QUAL_SLUG="$("$PYTHON" -c "import json; rows = json.load(open('$_QUALIFY_OUT/qualified_prospects.json')); print(rows[0]['profile_slug'] if rows else 'none')")"
+_QUAL_SLUG="$(QUALIFY_OUT="$_QUALIFY_OUT" "$PYTHON" -c "import json, os, pathlib; p = pathlib.Path(os.environ['QUALIFY_OUT']) / 'qualified_prospects.json'; rows = json.loads(p.read_text(encoding='utf-8')); print(rows[0].get('profile_slug', 'none') if rows else 'none')")"
 if [ "$_QUAL_SLUG" = "example-founder" ]; then
   RESULTS+=("PASS  qualify_prospect: example-founder qualifies (slug present in qualified_prospects.json)")
   PASS=$((PASS+1))

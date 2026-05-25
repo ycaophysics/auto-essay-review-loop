@@ -1,0 +1,50 @@
+[
+  {
+    "profileUrl": "https://www.linkedin.com/in/example-founder/",
+    "profile_slug": "example-founder",
+    "firstName": "Chris",
+    "fullName": "Chris Example",
+    "headline": "Founder at Amiara — remote staffing for franchise systems",
+    "currentRole": "Founder",
+    "company": "Amiara",
+    "location": "San Francisco",
+    "about": "Building B2B SaaS.",
+    "recentExperience": [],
+    "education": [],
+    "email": null,
+    "phone": null,
+    "source": "fixture"
+  },
+  {
+    "profileUrl": "https://www.linkedin.com/in/example-rejected/",
+    "profile_slug": "example-rejected",
+    "firstName": "Alex",
+    "fullName": "Alex Example",
+    "headline": "CEO at BetaCo",
+    "currentRole": "Founder",
+    "company": "BetaCo<script>alert(1)</script>",
+    "location": "San Francisco",
+    "about": "Building B2B SaaS.",
+    "recentExperience": [],
+    "education": [],
+    "email": null,
+    "phone": null,
+    "source": "fixture"
+  },
+  {
+    "profileUrl": "https://www.linkedin.com/in/example-progress/",
+    "profile_slug": "example-progress",
+    "firstName": "Sam",
+    "fullName": "Sam Example",
+    "headline": "Founder at GammaInc",
+    "currentRole": "Founder",
+    "company": "GammaInc",
+    "location": "San Francisco",
+    "about": "Building B2B SaaS.",
+    "recentExperience": [],
+    "education": [],
+    "email": null,
+    "phone": null,
+    "source": "fixture"
+  }
+]

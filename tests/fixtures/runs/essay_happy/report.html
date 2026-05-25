@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>essay · Auto Review · essay-happy</title>
+  
+  <style>
+:root {
+  --bg: #ffffff;
+  --bg-elev-1: #fafafa;
+  --bg-elev-2: #f4f4f4;
+  --border: #e4e4e4;
+  --border-strong: #c8c8c8;
+  --text-primary: #1a1a1a;
+  --text-muted: #6e6e6e;
+  --text-faint: #a8a8a8;
+  --status-ok: #0f7a3d;
+  --status-ok-bg: #e5f4eb;
+  --status-warn: #b3631a;
+  --status-warn-bg: #fbf0e2;
+  --status-bad: #b3261e;
+  --status-bad-bg: #f9e6e4;
+  --status-busy: #2a6db3;
+  --status-busy-bg: #e7f0fa;
+  --code-bg: #f4f4f4;
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 14px;
+  line-height: 20px;
+}
+
+body {
+  margin: 0;
+  padding: var(--space-4);
+  max-width: 1280px;
+  color: var(--text-primary);
+  background: var(--bg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+h1 {
+  margin: 0 0 var(--space-2);
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 600;
+}
+
+h2 {
+  margin: var(--space-12) 0 var(--space-4);
+  font-size: 15px;
+  line-height: 22px;
+  font-weight: 600;
+}
+
+h3.rejection-group-header {
+  margin: var(--space-6) 0 var(--space-2);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--text-muted);
+}
+
+header,
+main,
+footer {
+  display: block;
+}
+
+header {
+  margin-bottom: var(--space-8);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.run-meta {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.run-meta span + span::before {
+  content: " · ";
+}
+
+.banner {
+  margin: var(--space-4) 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  background: var(--bg-elev-1);
+}
+
+.banner-warn {
+  border-color: var(--status-warn);
+  background: var(--status-warn-bg);
+  color: var(--status-warn);
+}
+
+.banner-busy {
+  border-color: var(--status-busy);
+  background: var(--status-busy-bg);
+  color: var(--status-busy);
+}
+
+.banner-bad {
+  border-color: var(--status-bad);
+  background: var(--status-bad-bg);
+  color: var(--status-bad);
+}
+
+.banner p {
+  margin: var(--space-1) 0 0;
+  color: var(--text-primary);
+}
+
+.warnings-list {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-6);
+  color: var(--text-muted);
+}
+
+.label {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  line-height: 14px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 2px;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  line-height: 14px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+.badge-ok {
+  border: 1px solid var(--status-ok);
+  background: var(--status-ok-bg);
+  color: var(--status-ok);
+}
+
+.badge-bad {
+  border: 1px solid var(--status-bad);
+  background: var(--status-bad-bg);
+  color: var(--status-bad);
+}
+
+.badge-busy {
+  border: 1px solid var(--status-busy);
+  background: var(--status-busy-bg);
+  color: var(--status-busy);
+}
+
+.badge-warn {
+  border: 1px solid var(--status-warn);
+  background: var(--status-warn-bg);
+  color: var(--status-warn);
+}
+
+.badge-muted {
+  border: none;
+  background: var(--bg-elev-2);
+  color: var(--text-faint);
+}
+
+.funnel {
+  margin: var(--space-6) 0;
+}
+
+.funnel-bars {
+  display: flex;
+  align-items: stretch;
+  gap: 1px;
+  height: 14px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+}
+
+.funnel-segment {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: 2px;
+  background: var(--text-primary);
+  padding: 0 var(--space-1);
+  overflow: hidden;
+}
+
+.funnel-segment-label {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--bg);
+  white-space: nowrap;
+}
+
+.funnel-legend {
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.funnel-legend li {
+  margin: var(--space-1) 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--text-muted);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.empty-state {
+  margin: var(--space-4) 0;
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  background: var(--bg-elev-1);
+}
+
+.empty-state ul {
+  margin: var(--space-2) 0;
+  padding-left: var(--space-6);
+}
+
+.empty-state .hint {
+  margin-top: var(--space-3);
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.prospect-card {
+  margin: var(--space-2) 0;
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.prospect-card[open] {
+  margin: var(--space-4) 0;
+}
+
+.prospect-card > summary {
+  list-style: disclosure-closed;
+  cursor: pointer;
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-elev-2);
+  font-weight: 500;
+}
+
+.prospect-card[open] > summary {
+  list-style: disclosure-open;
+}
+
+.card-header-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.card-slug {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+}
+
+.slug-link {
+  margin-left: var(--space-1);
+  padding: 0 var(--space-1);
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.slug-link:hover {
+  color: var(--text-primary);
+}
+
+.slug-link:focus,
+a:focus {
+  outline: 2px solid var(--status-busy);
+  outline-offset: 1px;
+}
+
+.card-meta-inline {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.card-body {
+  padding: var(--space-4);
+}
+
+.card-section {
+  margin-bottom: var(--space-6);
+}
+
+.card-section:last-child {
+  margin-bottom: 0;
+}
+
+.message-block {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  background: var(--bg-elev-1);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.message-meta {
+  margin: 0 0 var(--space-2);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.btn-copy {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.btn-copy:hover {
+  background: var(--bg-elev-1);
+}
+
+.btn-copy:focus {
+  outline: 2px solid var(--status-busy);
+  outline-offset: 1px;
+}
+
+.btn-copy.is-copied {
+  background: var(--status-ok-bg);
+  color: var(--status-ok);
+}
+
+.btn-copy.is-persisted::after {
+  content: " [✓ copied]";
+  font-size: 11px;
+}
+
+.cta-text {
+  margin: var(--space-2) 0 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.profile-line {
+  margin: var(--space-1) 0 0;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 1px 0 rgb(0 0 0 / 0.08);
+}
+
+th,
+td {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: var(--bg-elev-2);
+}
+
+td.num {
+  text-align: right;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+table.zebra tbody tr:nth-child(even) {
+  background: var(--bg-elev-1);
+}
+
+.verification-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  font-size: 13px;
+}
+
+.check-ok {
+  color: var(--status-ok);
+}
+
+.check-bad {
+  color: var(--status-bad);
+}
+
+.nested-details {
+  margin: var(--space-2) 0;
+  border: 1px solid var(--border);
+}
+
+.nested-details > summary {
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-elev-2);
+  cursor: pointer;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  list-style: disclosure-closed;
+}
+
+.nested-details[open] > summary {
+  list-style: disclosure-open;
+}
+
+.nested-details .nested-body {
+  padding: var(--space-3);
+}
+
+.trace-block {
+  margin: var(--space-2) 0;
+}
+
+.trace-block pre {
+  margin: var(--space-1) 0 0;
+  padding: var(--space-3);
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  overflow-x: auto;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  line-height: 18px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.round-diff pre {
+  margin: 0;
+  padding: var(--space-2);
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  overflow-x: auto;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  line-height: 18px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.round-diff .diff-line {
+  display: block;
+  padding: 0 var(--space-2);
+}
+
+.round-diff .diff-add {
+  background: var(--status-ok-bg);
+}
+
+.round-diff .diff-del {
+  background: var(--status-bad-bg);
+}
+
+.round-diff .diff-chg {
+  background: var(--status-warn-bg);
+}
+
+.round-diff .diff-ctx {
+  background: var(--bg);
+}
+
+.round-diff table {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  line-height: 18px;
+  box-shadow: none;
+}
+
+.round-diff .diff_add {
+  background: var(--status-ok-bg);
+}
+
+.round-diff .diff_chg {
+  background: var(--status-warn-bg);
+}
+
+.round-diff .diff_sub {
+  background: var(--status-bad-bg);
+}
+
+footer {
+  margin-top: var(--space-12);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+@media print {
+  details,
+  .prospect-card,
+  .nested-details {
+    display: block;
+  }
+
+  .prospect-card > summary,
+  .nested-details > summary {
+    display: none;
+  }
+
+  .prospect-card .card-body,
+  .nested-details .nested-body {
+    display: block;
+  }
+
+  .btn-copy,
+  .slug-link {
+    display: none !important;
+  }
+
+  .prospect-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
+</style>
+</head>
+<body>
+
+
+
+
+
+<header>
+  <h1>Auto Review</h1>
+  <p class="run-meta">
+    <span>essay</span>
+    <span>essay-happy</span>
+    <span>2026-05-13T09:33:00Z</span>
+    <span>completed 2026-05-13T10:00:00Z</span>
+  </p>
+
+  
+
+  
+</header>
+
+<main>
+  
+  <section class="funnel" aria-labelledby="funnel-heading">
+    <h2 id="funnel-heading">Funnel</h2>
+    <div
+      class="funnel-bars"
+      role="img"
+      aria-label="Funnel: init 1, round_2 2, approved 1"
+    >
+      
+      
+      
+      <div class="funnel-segment" style="flex: 1 1 0; min-width: 100.0%;" title="init: 1">
+        
+        <span class="funnel-segment-label">1</span>
+        
+      </div>
+      
+      
+      
+      <div class="funnel-segment" style="flex: 2 1 0; min-width: 200.0%;" title="round_2: 2">
+        
+        <span class="funnel-segment-label">2</span>
+        
+      </div>
+      
+      
+      
+      <div class="funnel-segment" style="flex: 1 1 0; min-width: 100.0%;" title="approved: 1">
+        
+        <span class="funnel-segment-label">1</span>
+        
+      </div>
+      
+    </div>
+    <ul class="funnel-legend">
+      
+      
+      <li><span class="label">init</span> 1 (100.0%)</li>
+      
+      
+      <li><span class="label">round_2</span> 2 (200.0%)</li>
+      
+      
+      <li><span class="label">approved</span> 1 (100.0%)</li>
+      
+    </ul>
+    <table class="visually-hidden">
+      <caption>Funnel stage counts</caption>
+      <thead>
+        <tr><th scope="col">Stage</th><th scope="col">Count</th></tr>
+      </thead>
+      <tbody>
+        
+        <tr><td>init</td><td>1</td></tr>
+        
+        <tr><td>round_2</td><td>2</td></tr>
+        
+        <tr><td>approved</td><td>1</td></tr>
+        
+      </tbody>
+    </table>
+  </section>
+  
+
+  
+
+  
+
+  
+
+  
+
+  <section aria-labelledby="approved-heading">
+    <h2 id="approved-heading">Approved (1)</h2>
+
+    
+    
+    
+  
+  
+  
+  
+  
+  
+  <details class="prospect-card" id="prospect-essay-happy">
+    <summary>
+      <div class="card-header-row">
+        <span class="card-slug">essay-happy</span>
+        <button
+          type="button"
+          class="slug-link"
+          data-slug-link="#prospect-essay-happy"
+          aria-label="Copy link to prospect essay-happy"
+        >#</button>
+        
+    
+      <span class="badge badge-ok">APPROVED</span>
+    
+        
+        
+      </div>
+    </summary>
+    <div class="card-body">
+      <section class="card-section" aria-labelledby="cta-essay-happy">
+        <div class="label" id="cta-essay-happy">Next step</div>
+        <div class="cta-row">
+          
+          
+          
+        </div>
+        
+      </section>
+
+      
+
+      <section class="card-section" aria-labelledby="profile-essay-happy">
+        <div class="label" id="profile-essay-happy">Profile</div>
+        <p class="profile-line">
+          <strong>Auto Review</strong>
+           · essay
+          
+        </p>
+        
+      </section>
+
+      
+      
+      
+
+      
+
+      
+
+      
+
+      
+      <details class="nested-details card-section">
+        <summary>Persona traces</summary>
+        <div class="nested-body">
+          
+          
+          
+        </div>
+      </details>
+      
+    </div>
+  </details>
+    
+    
+  </section>
+
+  
+</main>
+
+<footer>
+  <p>Report schema v2 · essay · essay-happy</p>
+  
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  var STORAGE_KEY = "auto-review-report-copied";
+
+  function readCopiedSlugs() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) {
+        return [];
+      }
+      var parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function writeCopiedSlugs(slugs) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(slugs));
+    } catch (e) {
+      /* ignore quota / private mode */
+    }
+  }
+
+  function markPersistedCopyButtons() {
+    var slugs = readCopiedSlugs();
+    if (!slugs.length) {
+      return;
+    }
+    document.querySelectorAll("[data-copy-slug]").forEach(function (btn) {
+      var slug = btn.getAttribute("data-copy-slug");
+      if (slug && slugs.indexOf(slug) !== -1) {
+        btn.classList.add("is-persisted");
+      }
+    });
+  }
+
+  function flashCopied(btn) {
+    if (!btn || !btn.getAttribute("data-copy-text")) {
+      return;
+    }
+    var original = btn.getAttribute("data-label-default") || btn.textContent;
+    if (!btn.getAttribute("data-label-default")) {
+      btn.setAttribute("data-label-default", original);
+    }
+    btn.classList.add("is-copied");
+    btn.textContent = "[copied]";
+    window.setTimeout(function () {
+      btn.classList.remove("is-copied");
+      btn.textContent = btn.getAttribute("data-label-default") || original;
+    }, 2000);
+  }
+
+  function persistSlug(slug) {
+    if (!slug) {
+      return;
+    }
+    var slugs = readCopiedSlugs();
+    if (slugs.indexOf(slug) === -1) {
+      slugs.push(slug);
+      writeCopiedSlugs(slugs);
+    }
+  }
+
+  function copyText(text, btn, slug) {
+    if (!text) {
+      return;
+    }
+    function onSuccess() {
+      if (btn && btn.hasAttribute("data-copy-text")) {
+        flashCopied(btn);
+      }
+      if (slug) {
+        persistSlug(slug);
+        if (btn) {
+          btn.classList.add("is-persisted");
+        }
+      }
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(onSuccess).catch(function () {
+        fallbackCopy(text, onSuccess);
+      });
+    } else {
+      fallbackCopy(text, onSuccess);
+    }
+  }
+
+  function fallbackCopy(text, onSuccess) {
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "absolute";
+    ta.style.left = "-9999px";
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand("copy");
+      onSuccess();
+    } catch (e) {
+      /* ignore */
+    }
+    document.body.removeChild(ta);
+  }
+
+  document.addEventListener("click", function (ev) {
+    var btn = ev.target.closest("[data-copy-text]");
+    if (btn) {
+      ev.preventDefault();
+      copyText(
+        btn.getAttribute("data-copy-text") || "",
+        btn,
+        btn.getAttribute("data-copy-slug") || ""
+      );
+      return;
+    }
+
+    var slugBtn = ev.target.closest("[data-slug-link]");
+    if (slugBtn) {
+      ev.preventDefault();
+      var hash = slugBtn.getAttribute("data-slug-link") || "";
+      var url = window.location.href.split("#")[0] + hash;
+      copyText(url, null, null);
+    }
+  });
+
+  function expandFromHash() {
+    var hash = window.location.hash;
+    if (!hash || hash.indexOf("#prospect-") !== 0) {
+      return;
+    }
+    var card = document.querySelector(hash);
+    if (card && card.tagName === "DETAILS") {
+      card.open = true;
+      if (card.scrollIntoView) {
+        card.scrollIntoView({ block: "start" });
+      }
+    }
+  }
+
+  markPersistedCopyButtons();
+  expandFromHash();
+  window.addEventListener("hashchange", expandFromHash);
+})();
+</script>
+</body>
+</html>

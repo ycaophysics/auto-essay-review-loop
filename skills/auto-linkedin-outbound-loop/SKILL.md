@@ -291,6 +291,28 @@ After every prospect terminates:
    Nothing has been sent.
    ```
 
+### Phase 6 — HTML report (live-watch + final)
+
+Generate a self-contained `report.html` in the run directory and refresh
+`review-stage/index.html`. Report generation **never blocks the pipeline** —
+log and continue on failure.
+
+After **each prospect terminates** (Phase 4 step 4) and after **Phase 5 export**:
+
+```bash
+bash tools/run.sh generate_run_report.py "$RUN_DIR" 2>&1 | tee -a "$RUN_DIR/MANIFEST.md" || \
+    echo "WARN: report generation failed (exit $?); run artifacts still at $RUN_DIR"
+```
+
+While `RUN.json` has `"status": "in_progress"`, the report includes a
+`<meta http-equiv="refresh" content="5">` tag so opening `report.html` in a
+browser auto-refreshes during the run. Re-invoke the generator standalone any
+time:
+
+```bash
+bash tools/run.sh generate_run_report.py review-stage/outbound/runs/<run_id>
+```
+
 ## Drafting prompt (first-touch message)
 
 This is generated and applied by the skill (not a Codex review call). Use this exact structure when drafting:

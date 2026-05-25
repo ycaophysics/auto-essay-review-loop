@@ -1,0 +1,27 @@
+{
+  "tool": "verify_outbound_message",
+  "profile_slug": "example-rejected",
+  "passed": false,
+  "checks": [
+    {
+      "name": "message_length",
+      "passed": false,
+      "detail": "232/300"
+    },
+    {
+      "name": "evidence_count",
+      "passed": false,
+      "detail": "2"
+    },
+    {
+      "name": "forbidden_claims",
+      "passed": false,
+      "detail": "none"
+    },
+    {
+      "name": "channel_authorized",
+      "passed": false,
+      "detail": "ok"
+    }
+  ]
+}

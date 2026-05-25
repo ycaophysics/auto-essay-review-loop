@@ -1,0 +1,27 @@
+{
+  "tool": "verify_outbound_message",
+  "profile_slug": "example-progress",
+  "passed": true,
+  "checks": [
+    {
+      "name": "message_length",
+      "passed": true,
+      "detail": "232/300"
+    },
+    {
+      "name": "evidence_count",
+      "passed": true,
+      "detail": "2"
+    },
+    {
+      "name": "forbidden_claims",
+      "passed": true,
+      "detail": "none"
+    },
+    {
+      "name": "channel_authorized",
+      "passed": true,
+      "detail": "ok"
+    }
+  ]
+}

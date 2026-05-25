@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>review-stage / index</title>
+  {% include '_css.html.j2' %}
+  <style>
+    .index-table { width: 100%; margin-top: var(--space-4); }
+    .index-table th { text-align: left; }
+    .index-table td.num { text-align: right; font-family: var(--font-mono); }
+    .row-busy { border-left: 3px solid var(--status-busy); }
+    .row-ok { border-left: 3px solid var(--status-ok); }
+    .row-bad { border-left: 3px solid var(--status-bad); }
+    .row-warn { border-left: 3px solid var(--status-warn); }
+    .row-error { border-left: 3px solid var(--status-bad); }
+    .index-empty { margin-top: var(--space-8); }
+    .index-empty code { font-family: var(--font-mono); font-size: 13px; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>review-stage / index</h1>
+  <p class="run-meta">
+    <span>{{ rows|length }} runs</span>
+    <span>generated {{ generated_at }}</span>
+  </p>
+</header>
+
+<main>
+  {% if not rows %}
+  <section class="index-empty" aria-labelledby="empty-heading">
+    <h2 id="empty-heading">No runs yet</h2>
+    <p>Run a skill to generate your first report.</p>
+    <p><code>/auto-linkedin-outbound-loop campaigns/&lt;name&gt;.json</code></p>
+    <p><code>/auto-essay-review-loop drafts/&lt;name&gt;.md</code></p>
+  </section>
+  {% else %}
+  <section aria-labelledby="runs-heading">
+    <h2 id="runs-heading" class="visually-hidden">Runs</h2>
+    <table class="index-table">
+      <thead>
+        <tr>
+          <th scope="col">when</th>
+          <th scope="col">skill</th>
+          <th scope="col">campaign</th>
+          <th scope="col">stat</th>
+          <th scope="col" class="num">qual</th>
+          <th scope="col" class="num">appr</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        {% set row_class = 'row-busy' if row.status in ['in_progress', 'stalled'] else ('row-warn' if row.status == 'partial' else ('row-error' if row.error else ('row-ok' if row.status == 'completed' else 'row-bad'))) %}
+        <tr class="{{ row_class }}">
+          <td>{{ row.started_at[:16] if row.started_at else '—' }}</td>
+          <td>{{ row.skill }}</td>
+          <td>
+            {% if row.report_path %}
+            <a href="{{ row.report_path }}">{{ row.campaign }}</a>
+            {% else %}
+            {{ row.campaign }}
+            {% endif %}
+            {% if row.error %}
+            <span class="badge badge-bad">ERROR</span>
+            <span class="error-detail">{{ row.error }}</span>
+            {% elif row.status == 'partial' %}
+            <span class="badge badge-warn">PARTIAL</span>
+            {% elif row.status == 'in_progress' %}
+            <span class="badge badge-busy">IN PROGRESS</span>
+            {% elif row.status == 'stalled' %}
+            <span class="badge badge-warn">STALLED</span>
+            {% elif row.status == 'completed' %}
+            <span class="badge badge-ok">✓</span>
+            {% endif %}
+          </td>
+          <td>{{ row.status }}</td>
+          <td class="num">{{ row.qualified }}/{{ row.enriched }}</td>
+          <td class="num">{{ row.approved }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% endif %}
+</main>
+</body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "schema_version": 2,
+  "skill": "essay",
+  "run_id": "essay-happy",
+  "campaign_name": "why-i-build",
+  "status": "completed",
+  "started_at": "2026-05-13T09:33:00Z",
+  "completed_at": "2026-05-13T10:00:00Z",
+  "draft_path": "draft.md"
+}

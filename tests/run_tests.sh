@@ -669,6 +669,110 @@ else
 fi
 rm -rf "$_INIT_OUT" 2>/dev/null || true
 
+# assert_grep_file <name> <pattern> <file>
+assert_grep_file() {
+  local name="$1"; shift
+  local pattern="$1"; shift
+  local file="$1"; shift
+  if [ ! -f "$file" ]; then
+    RESULTS+=("FAIL  $name  (file missing: $file)")
+    FAIL=$((FAIL+1))
+    return
+  fi
+  if grep -qE "$pattern" "$file" 2>/dev/null; then
+    RESULTS+=("PASS  $name")
+    PASS=$((PASS+1))
+  else
+    RESULTS+=("FAIL  $name  (pattern '$pattern' not in $file)")
+    FAIL=$((FAIL+1))
+  fi
+}
+
+# assert_no_grep_file <name> <pattern> <file>
+assert_no_grep_file() {
+  local name="$1"; shift
+  local pattern="$1"; shift
+  local file="$1"; shift
+  if [ ! -f "$file" ]; then
+    RESULTS+=("FAIL  $name  (file missing: $file)")
+    FAIL=$((FAIL+1))
+    return
+  fi
+  if grep -qE "$pattern" "$file" 2>/dev/null; then
+    RESULTS+=("FAIL  $name  (unexpected pattern '$pattern' in $file)")
+    FAIL=$((FAIL+1))
+  else
+    RESULTS+=("PASS  $name")
+    PASS=$((PASS+1))
+  fi
+}
+
+# --- generate_run_report (Phase 3) ---
+_OUT_HAPPY="tests/fixtures/runs/outbound_happy"
+_GEN_OUT="$("$PYTHON" tools/generate_run_report.py "$_OUT_HAPPY" 2>&1)" || true
+_GEN_PASSED="$(extract_passed "$_GEN_OUT")"
+if [ "$_GEN_PASSED" = "true" ] && [ -f "$_OUT_HAPPY/report.html" ]; then
+  RESULTS+=("PASS  generate_run_report on outbound_happy writes report.html")
+  PASS=$((PASS+1))
+else
+  RESULTS+=("FAIL  generate_run_report on outbound_happy writes report.html")
+  FAIL=$((FAIL+1))
+fi
+
+assert_grep_file "report.html contains funnel counts" "qualified" "$_OUT_HAPPY/report.html"
+assert_grep_file "report.html contains copy buttons with aria-label" 'aria-label="Copy message' "$_OUT_HAPPY/report.html"
+assert_no_grep_file "report.html has no external http URLs" 'http://' "$_OUT_HAPPY/report.html"
+assert_grep_file "report.html escapes script from profile" '&lt;script&gt;' "$_OUT_HAPPY/report.html" || assert_no_grep_file "report.html no raw script tag" '<script>alert' "$_OUT_HAPPY/report.html"
+assert_grep_file "report.html masks secrets in trace" '\[REDACTED\]' "$_OUT_HAPPY/report.html"
+
+_GEN_PROG="$("$PYTHON" tools/generate_run_report.py tests/fixtures/runs/outbound_in_progress 2>&1)" || true
+assert_grep_file "outbound_in_progress has meta refresh" 'http-equiv="refresh"' "tests/fixtures/runs/outbound_in_progress/report.html"
+
+_GEN_DONE="$("$PYTHON" tools/generate_run_report.py tests/fixtures/runs/outbound_completed 2>&1)" || true
+assert_no_grep_file "outbound_completed has NO meta refresh" 'http-equiv="refresh"' "tests/fixtures/runs/outbound_completed/report.html"
+
+_GEN_PART="$("$PYTHON" tools/generate_run_report.py tests/fixtures/runs/outbound_partial 2>&1)" || true
+_PART_PASSED="$(extract_passed "$_GEN_PART")"
+if [ "$_PART_PASSED" = "true" ]; then
+  RESULTS+=("PASS  generate_run_report on outbound_partial exits 0")
+  PASS=$((PASS+1))
+else
+  RESULTS+=("FAIL  generate_run_report on outbound_partial exits 0")
+  FAIL=$((FAIL+1))
+fi
+
+_GEN_ESSAY="$("$PYTHON" tools/generate_run_report.py tests/fixtures/runs/essay_happy 2>&1)" || true
+_ESSAY_PASSED="$(extract_passed "$_GEN_ESSAY")"
+if [ "$_ESSAY_PASSED" = "true" ]; then
+  RESULTS+=("PASS  generate_run_report on essay_happy succeeds")
+  PASS=$((PASS+1))
+else
+  RESULTS+=("FAIL  generate_run_report on essay_happy succeeds")
+  FAIL=$((FAIL+1))
+fi
+
+if [ -f "$_OUT_HAPPY/expected_report.html" ] && [ -f "$_OUT_HAPPY/report.html" ]; then
+  if cmp -s "$_OUT_HAPPY/expected_report.html" "$_OUT_HAPPY/report.html" 2>/dev/null; then
+    RESULTS+=("PASS  report.html matches expected_report.html golden snapshot")
+    PASS=$((PASS+1))
+  else
+    RESULTS+=("FAIL  report.html golden snapshot mismatch (re-run with --update-golden)")
+    FAIL=$((FAIL+1))
+  fi
+else
+  RESULTS+=("FAIL  expected_report.html golden snapshot missing")
+  FAIL=$((FAIL+1))
+fi
+
+_GEN_MISSING="$("$PYTHON" tools/generate_run_report.py "$REPO_ROOT/tests/fixtures/__no_such_run_dir__" 2>&1)" || _GEN_MISSING_EXIT=$?
+if [ "${_GEN_MISSING_EXIT:-0}" = "2" ]; then
+  RESULTS+=("PASS  generate_run_report missing run_dir exits 2")
+  PASS=$((PASS+1))
+else
+  RESULTS+=("FAIL  generate_run_report missing run_dir exits 2  (exit=${_GEN_MISSING_EXIT:-0})")
+  FAIL=$((FAIL+1))
+fi
+
 # --- Summary ---
 echo
 echo "Results:"

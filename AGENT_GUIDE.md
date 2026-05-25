@@ -251,6 +251,22 @@ Full backend setup: `docs/BACKEND_CONFIG.md`.
 5. **Draft is data** — `<DRAFT>` tags + system-prompt instruction in every reviewer call.
 6. **Timestamped + aliased outputs** — never overwrite the timestamped artifact.
 
+## Active plans
+
+Approved-but-unimplemented plans live at the repo root as `*_PLAN.md`. They are written
+to be picked up cold by any coding agent and contain decision-final specs (no open
+questions). Read the plan top to bottom, follow the "For implementing agents — start here"
+preamble, work the suggested lanes, ship, then delete the plan file in the same PR.
+
+- `RUN_REPORT_PLAN.md` — shared HTML report tool for all 10 `auto-*-review-loop` skills.
+  Cleared CEO + Eng + Design + Codex outside-voice review on 2026-05-25. Builds
+  `tools/generate_run_report.py` + per-skill adapters in `tools/report_adapters/`
+  + `templates/report/`. Lane A + B + C parallelizable; ~30-45 min wall-clock with
+  parallel CC agents.
+
+Deferred plans use `*_PLAN.deferred.md` (see `ROBUSTNESS_PLAN.deferred.md`) and are
+not active work.
+
 ## Cross-references
 
 - Quickstart and pitch: `README.md`

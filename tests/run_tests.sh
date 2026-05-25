@@ -729,6 +729,8 @@ assert_grep_file "report.html contains verification row" "Verification" "$_OUT_H
 assert_grep_file "report.html shows in-progress badge" "IN PROGRESS" "$_OUT_HAPPY/report.html"
 assert_grep_file "report.html contains copy buttons with aria-label" 'aria-label="Copy message' "$_OUT_HAPPY/report.html"
 assert_grep_file "report.html contains run summary" "ready to send" "$_OUT_HAPPY/report.html"
+assert_grep_file "outbound report uses LinkedIn send CTA" "open LinkedIn, send" "$_OUT_HAPPY/report.html"
+assert_no_grep_file "outbound report skips qual-only rejection headers" "rejected for no B2B SaaS signal in headline" "$_OUT_HAPPY/report.html"
 assert_no_grep_file "report.html has no external http URLs" 'http://' "$_OUT_HAPPY/report.html"
 assert_grep_file "report.html escapes script from profile" '&lt;script&gt;' "$_OUT_HAPPY/report.html" || assert_no_grep_file "report.html no raw script tag" '<script>alert' "$_OUT_HAPPY/report.html"
 assert_grep_file "report.html masks secrets in trace" '\[REDACTED\]' "$_OUT_HAPPY/report.html"
@@ -758,6 +760,10 @@ else
   RESULTS+=("FAIL  generate_run_report on essay_happy succeeds")
   FAIL=$((FAIL+1))
 fi
+
+assert_no_grep_file "essay report has no LinkedIn send CTA" "open LinkedIn, send" "tests/fixtures/runs/essay_happy/report.html"
+assert_grep_file "essay report uses neutral approved CTA" "review the approved draft below" "tests/fixtures/runs/essay_happy/report.html"
+assert_grep_file "essay report uses Approved section heading" 'Approved \(1\)' "tests/fixtures/runs/essay_happy/report.html"
 
 if [ -f "$_OUT_HAPPY/expected_report.html" ] && [ -f "$_OUT_HAPPY/report.html" ]; then
   if cmp -s "$_OUT_HAPPY/expected_report.html" "$_OUT_HAPPY/report.html" 2>/dev/null; then

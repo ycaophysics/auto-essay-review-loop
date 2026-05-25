@@ -17,6 +17,7 @@
 {% set rejected_count = run.rejected_items|length %}
 {% set funnel_max = run.funnel[0][1] if run.funnel else 1 %}
 {% if funnel_max == 0 %}{% set funnel_max = 1 %}{% endif %}
+{% set is_outbound = run.skill == 'linkedin-outbound' %}
 
 <header>
   <h1>{{ run.campaign }}</h1>
@@ -69,15 +70,23 @@
   {% endif %}
   {% if ready_count > 0 %}
   {% set first_ready = ready_items|first %}
-  {% if run.skill == 'linkedin-outbound' %}
+  {% if is_outbound %}
   <p class="run-summary-action">Start with <a href="#prospect-{{ first_ready.slug }}">{{ first_ready.title }}</a> — copy the message, open LinkedIn, send.</p>
   {% else %}
   <p class="run-summary-action">Start with <a href="#prospect-{{ first_ready.slug }}">{{ first_ready.title }}</a> — review the approved draft below.</p>
   {% endif %}
   {% elif progress_count > 0 %}
+  {% if is_outbound %}
   <p class="run-summary-action">No messages approved yet. {{ progress_count }} prospect(s) still in review — check back when the pipeline finishes.</p>
+  {% else %}
+  <p class="run-summary-action">Nothing approved yet. {{ progress_count }} item(s) still in review — check back when the run finishes.</p>
+  {% endif %}
   {% elif rejected_count > 0 %}
+  {% if is_outbound %}
   <p class="run-summary-action">No approved messages. Review rejection reasons below or adjust your campaign ICP.</p>
+  {% else %}
+  <p class="run-summary-action">No approved items. Review rejection reasons below.</p>
+  {% endif %}
   {% endif %}
 </div>
 {% endif %}
@@ -182,7 +191,7 @@
   {% set company = item.metadata.get('company', item.subtitle) %}
   {% set display_message = item.final_message or (lr.message if lr else '') %}
   {% set msg_len = display_message|length if display_message else 0 %}
-  {% set copy_label = 'Copy message to ' ~ item.title ~ (' at ' ~ company if company else '') %}
+  {% set copy_label = ('Copy message to ' if is_outbound else 'Copy draft for ') ~ item.title ~ (' at ' ~ company if company and is_outbound else '') %}
   <details class="prospect-card" id="prospect-{{ item.slug }}"{% if st == 'approved' %} open{% endif %}>
     <summary>
       <div class="card-header-row">
@@ -196,7 +205,7 @@
           type="button"
           class="slug-link"
           data-slug-link="#prospect-{{ item.slug }}"
-          aria-label="Copy link to prospect {{ item.slug }}"
+          aria-label="Copy link to {{ 'prospect' if is_outbound else 'item' }} {{ item.slug }}"
           title="Copy deep link"
         >Link</button>
       </div>
@@ -206,7 +215,7 @@
         <div class="label" id="cta-{{ item.slug }}">Next step</div>
         <div class="cta-row">
           {% if display_message and st == 'approved' %}
-          {% if run.skill == 'linkedin-outbound' %}
+          {% if is_outbound %}
           <button
             type="button"
             class="btn-copy btn-primary"
@@ -226,7 +235,7 @@
             aria-label="Copy approved draft for {{ item.title }}"
           >Copy draft</button>
           {% endif %}
-          {% elif profile_url and run.skill == 'linkedin-outbound' %}
+          {% elif profile_url and is_outbound %}
           <a class="btn-link" href="{{ profile_url }}">Open LinkedIn ↗</a>
           {% endif %}
           {% if st == 'rejected' and item.metadata.get('retry_cli') %}
@@ -246,7 +255,7 @@
 
       {% if display_message %}
       <section class="card-section" aria-labelledby="msg-{{ item.slug }}">
-        <div class="label" id="msg-{{ item.slug }}">Final message</div>
+        <div class="label" id="msg-{{ item.slug }}">{% if is_outbound %}Final message{% else %}Approved draft{% endif %}</div>
         {% if item.metadata.get('message_length') or channel %}
         <p class="message-meta">
           {% if item.metadata.get('message_length') %}{{ item.metadata.message_length }}{% elif msg_len %}{{ msg_len }} chars{% endif %}
@@ -262,7 +271,7 @@
         <p class="profile-line">
           <strong>{{ item.title }}</strong>
           {% if item.subtitle %} · {{ item.subtitle }}{% endif %}
-          {% if profile_url %}
+          {% if profile_url and is_outbound %}
           · <a href="{{ profile_url }}">LinkedIn ↗</a>
           {% endif %}
         </p>
@@ -394,12 +403,16 @@
   {%- endmacro %}
 
   <section aria-labelledby="ready-heading">
-    <h2 id="ready-heading">Ready to send ({{ ready_count }})</h2>
+    <h2 id="ready-heading">{% if is_outbound %}Ready to send{% else %}Approved{% endif %} ({{ ready_count }})</h2>
 
     {% if ready_count == 0 %}
     <div class="empty-state" role="status">
       {% if progress_count > 0 %}
+      {% if is_outbound %}
       <p><strong>No messages approved yet.</strong> {{ progress_count }} prospect(s) still in review.</p>
+      {% else %}
+      <p><strong>Nothing approved yet.</strong> {{ progress_count }} item(s) still in review.</p>
+      {% endif %}
       {% else %}
       {% set enriched_total = run.funnel[0][1] if run.funnel else rejected_count %}
       <p><strong>0 prospects approved out of {{ enriched_total }} enriched.</strong></p>

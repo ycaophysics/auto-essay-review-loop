@@ -722,7 +722,13 @@ else
 fi
 
 assert_grep_file "report.html contains funnel counts" "qualified" "$_OUT_HAPPY/report.html"
+assert_grep_file "report.html contains ready-to-send section" "Ready to send" "$_OUT_HAPPY/report.html"
+assert_grep_file "report.html contains in-review section" "In review" "$_OUT_HAPPY/report.html"
+assert_grep_file "report.html contains persona scorecard" "Persona scorecard" "$_OUT_HAPPY/report.html"
+assert_grep_file "report.html contains verification row" "Verification" "$_OUT_HAPPY/report.html"
+assert_grep_file "report.html shows in-progress badge" "IN PROGRESS" "$_OUT_HAPPY/report.html"
 assert_grep_file "report.html contains copy buttons with aria-label" 'aria-label="Copy message' "$_OUT_HAPPY/report.html"
+assert_grep_file "report.html contains run summary" "ready to send" "$_OUT_HAPPY/report.html"
 assert_no_grep_file "report.html has no external http URLs" 'http://' "$_OUT_HAPPY/report.html"
 assert_grep_file "report.html escapes script from profile" '&lt;script&gt;' "$_OUT_HAPPY/report.html" || assert_no_grep_file "report.html no raw script tag" '<script>alert' "$_OUT_HAPPY/report.html"
 assert_grep_file "report.html masks secrets in trace" '\[REDACTED\]' "$_OUT_HAPPY/report.html"

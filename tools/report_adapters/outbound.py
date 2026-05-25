@@ -354,6 +354,13 @@ def _load_traces(
     return grouped
 
 
+def _normalize_status(status: str) -> str:
+    s = (status or "in_progress").lower()
+    if s in ("reviewing", "qualified", "pending", "drafting"):
+        return "in_progress"
+    return s
+
+
 def _build_prospect_item(
     *,
     run_dir: Path,
@@ -367,11 +374,13 @@ def _build_prospect_item(
     rejected_row: dict | None,
     traces: dict[int, dict[str, dict[str, object]]],
 ) -> ReportItem:
-    status = str(
-        state.get("status")
-        or (approved_row and "approved")
-        or (rejected_row and "rejected")
-        or "in_progress"
+    status = _normalize_status(
+        str(
+            state.get("status")
+            or (approved_row and "approved")
+            or (rejected_row and "rejected")
+            or "in_progress"
+        )
     )
     title = (
         profile.get("fullName")
@@ -392,7 +401,11 @@ def _build_prospect_item(
         traces=traces,
     )
     item.metadata = _build_metadata(profile, qual, state, messages, verify)
-    item.next_step_cta = _next_step_cta(status, slug, run_dir, profile, state)
+    item.next_step_cta = _next_step_cta(status, slug, profile, state)
+    if status == "rejected":
+        item.metadata["retry_cli"] = (
+            f"bash tools/run.sh outbound_state.py update {slug} - --out-dir=."
+        )
     return item
 
 
@@ -484,16 +497,22 @@ def _scores_for_round(
             str(round_traces.get(persona, {}).get("response") or "")
         )
         score_val = parsed.get("score")
-        if score_val is None and round_n == max_round:
-            raw = last_scores.get(persona)
-            score_val = _coerce_int(raw)
-        verdict = str(
-            parsed.get("verdict")
-            or (round_n == max_round and last_verdicts.get(persona))
-            or "inconclusive"
-        )
+        verdict = str(parsed.get("verdict") or "inconclusive")
         weaknesses = _weakness_strings(parsed.get("weaknesses"))
         summary = str(parsed.get("summary") or "")
+        if round_n == max_round:
+            raw = last_scores.get(persona)
+            if isinstance(raw, dict):
+                if score_val is None:
+                    score_val = _coerce_int(raw.get("score"))
+                verdict = str(raw.get("verdict") or verdict)
+                summary = str(raw.get("summary") or summary)
+                if raw.get("weaknesses"):
+                    weaknesses = _weakness_strings(raw.get("weaknesses"))
+            elif score_val is None:
+                score_val = _coerce_int(raw)
+            if verdict == "inconclusive" and last_verdicts.get(persona):
+                verdict = str(last_verdicts.get(persona))
         scores.append(
             ReportScore(
                 persona=persona,
@@ -611,6 +630,8 @@ def _build_metadata(
         meta["channel"] = str(channel)
     if state.get("round") is not None:
         meta["round"] = str(state.get("round"))
+        meta["current_round"] = str(state.get("round"))
+    meta["max_rounds"] = "3"
     if state.get("blockers"):
         meta["blockers"] = "; ".join(str(b) for b in state.get("blockers") or [])
     return meta
@@ -619,27 +640,18 @@ def _build_metadata(
 def _next_step_cta(
     status: str,
     slug: str,
-    run_dir: Path,
     profile: dict,
     state: dict,
 ) -> str | None:
     if status == "approved":
-        url = profile.get("profileUrl") or state.get("profileUrl")
-        if url:
-            return f"Copy message and open LinkedIn profile: {url}"
-        return "Copy message and send via LinkedIn"
+        return "Copy the message below, then open their LinkedIn profile and send."
     if status == "rejected":
         blockers = state.get("blockers") or []
         if blockers:
-            return (
-                f"Top blockers: {'; '.join(str(b) for b in blockers[:3])}. "
-                f"Retry: bash tools/run.sh outbound_state.py update {slug} - --out-dir={run_dir}"
-            )
-        return (
-            f"Retry: bash tools/run.sh outbound_state.py update {slug} - --out-dir={run_dir}"
-        )
+            return f"Top blockers: {'; '.join(str(b) for b in blockers[:3])}."
+        return "Review persona scorecard and traces, then retry or skip this prospect."
     round_n = state.get("round") or 0
-    return f"Round {round_n} of 3 in flight"
+    return f"Round {round_n} of 3 in flight — pipeline still reviewing this prospect."
 
 
 def _qual_rejection_reason(row: dict) -> str:

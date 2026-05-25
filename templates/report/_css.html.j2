@@ -283,6 +283,45 @@ header {
   gap: var(--space-2);
 }
 
+.card-title {
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.card-subtitle {
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.card-slug-muted {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--text-faint);
+}
+
+.run-summary {
+  margin: 0 0 var(--space-6);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  background: var(--bg-elev-1);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.run-summary-action {
+  margin: var(--space-2) 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.run-summary a {
+  color: var(--status-busy);
+  font-weight: 600;
+}
+
 .card-slug {
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 13px;
@@ -354,7 +393,29 @@ a:focus {
   background: var(--bg);
   color: var(--text-primary);
   font: inherit;
+  font-size: 13px;
   cursor: pointer;
+}
+
+.btn-copy.btn-primary {
+  border-color: var(--status-ok);
+  background: var(--status-ok-bg);
+  color: var(--status-ok);
+  font-weight: 600;
+}
+
+.btn-link {
+  display: inline-block;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-primary);
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.btn-link:hover {
+  background: var(--bg-elev-1);
 }
 
 .btn-copy:hover {
@@ -372,7 +433,7 @@ a:focus {
 }
 
 .btn-copy.is-persisted::after {
-  content: " [✓ copied]";
+  content: " ✓ sent";
   font-size: 11px;
 }
 

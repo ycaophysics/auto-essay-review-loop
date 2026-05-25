@@ -47,7 +47,7 @@
       btn.setAttribute("data-label-default", original);
     }
     btn.classList.add("is-copied");
-    btn.textContent = "[copied]";
+    btn.textContent = "Copied";
     window.setTimeout(function () {
       btn.classList.remove("is-copied");
       btn.textContent = btn.getAttribute("data-label-default") || original;

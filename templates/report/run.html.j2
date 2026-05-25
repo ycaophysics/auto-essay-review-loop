@@ -10,7 +10,10 @@
   {% include '_css.html.j2' %}
 </head>
 <body>
-{% set approved_count = run.items|length %}
+{% set ready_items = run.items|selectattr('status', 'equalto', 'approved')|list %}
+{% set progress_items = run.items|rejectattr('status', 'equalto', 'approved')|list %}
+{% set ready_count = ready_items|length %}
+{% set progress_count = progress_items|length %}
 {% set rejected_count = run.rejected_items|length %}
 {% set funnel_max = run.funnel[0][1] if run.funnel else 1 %}
 {% if funnel_max == 0 %}{% set funnel_max = 1 %}{% endif %}
@@ -52,6 +55,28 @@
   </div>
   {% endif %}
 </header>
+
+{% if ready_count > 0 or progress_count > 0 or rejected_count > 0 %}
+<div class="run-summary" role="status" aria-live="polite">
+  {% if ready_count > 0 %}
+  <strong>{{ ready_count }} ready to send</strong>{% if progress_count > 0 or rejected_count > 0 %} · {% endif %}
+  {% endif %}
+  {% if progress_count > 0 %}
+  {{ progress_count }} in review{% if rejected_count > 0 %} · {% endif %}
+  {% endif %}
+  {% if rejected_count > 0 %}
+  {{ rejected_count }} rejected
+  {% endif %}
+  {% if ready_count > 0 %}
+  {% set first_ready = ready_items|first %}
+  <p class="run-summary-action">Start with <a href="#prospect-{{ first_ready.slug }}">{{ first_ready.title }}</a> — copy the message, open LinkedIn, send.</p>
+  {% elif progress_count > 0 %}
+  <p class="run-summary-action">No messages approved yet. {{ progress_count }} prospect(s) still in review — check back when the pipeline finishes.</p>
+  {% elif rejected_count > 0 %}
+  <p class="run-summary-action">No approved messages. Review rejection reasons below or adjust your campaign ICP.</p>
+  {% endif %}
+</div>
+{% endif %}
 
 <main>
   {% if run.funnel %}
@@ -98,7 +123,7 @@
       <span class="badge badge-ok">APPROVED</span>
     {% elif st == 'rejected' %}
       <span class="badge badge-bad">REJECTED</span>
-    {% elif st == 'in_progress' %}
+    {% elif st in ['in_progress', 'reviewing', 'qualified', 'pending', 'drafting'] %}
       {% set round_n = item.metadata.get('current_round') or item.metadata.get('round') or item.rounds|length %}
       {% set max_rounds = item.metadata.get('max_rounds', 3) %}
       <span class="badge badge-busy">IN PROGRESS · round {{ round_n }}/{{ max_rounds }}</span>
@@ -113,10 +138,6 @@
     {% endif %}
   {%- endmacro %}
 
-  {% macro latest_round(item) -%}
-    {{ item.rounds[-1] if item.rounds else none }}
-  {%- endmacro %}
-
   {% macro item_blocker(item) -%}
     {%- if item.metadata.get('primary_blocker') -%}
       {{- item.metadata.get('primary_blocker') -}}
@@ -125,7 +146,7 @@
     {%- elif item.metadata.get('blockers') -%}
       {{- item.metadata.get('blockers').split(';')[0].strip() -}}
     {%- else -%}
-      {%- set lr = latest_round(item) -%}
+      {%- set lr = item.rounds[-1] if item.rounds else none -%}
       {%- set ns = namespace(label='') -%}
       {%- if lr and lr.scores -%}
         {%- for score in lr.scores|reverse -%}
@@ -150,74 +171,60 @@
   {%- endmacro %}
 
   {% macro prospect_card(item) -%}
-  {% set lr = latest_round(item) %}
+  {% set lr = item.rounds[-1] if item.rounds else none %}
+  {% set st = item.status|lower %}
   {% set channel = item.metadata.get('channel', '') %}
   {% set profile_url = item.metadata.get('profile_url') or item.metadata.get('profileUrl') or item.metadata.get('linkedin_url') %}
   {% set company = item.metadata.get('company', item.subtitle) %}
   {% set display_message = item.final_message or (lr.message if lr else '') %}
   {% set msg_len = display_message|length if display_message else 0 %}
   {% set copy_label = 'Copy message to ' ~ item.title ~ (' at ' ~ company if company else '') %}
-  <details class="prospect-card" id="prospect-{{ item.slug }}">
+  <details class="prospect-card" id="prospect-{{ item.slug }}"{% if st == 'approved' %} open{% endif %}>
     <summary>
       <div class="card-header-row">
-        <span class="card-slug">{{ item.slug }}</span>
+        <span class="card-title">{{ item.title }}</span>
+        {% if item.subtitle %}<span class="card-subtitle">{{ item.subtitle }}</span>{% endif %}
+        {{ status_badge(item) }}
+        {% if channel %}<span class="card-meta-inline">{{ channel }}</span>{% endif %}
+        {% if msg_len and st == 'approved' %}<span class="card-meta-inline">{{ msg_len }} chars</span>{% endif %}
+        <span class="card-slug-muted">{{ item.slug }}</span>
         <button
           type="button"
           class="slug-link"
           data-slug-link="#prospect-{{ item.slug }}"
           aria-label="Copy link to prospect {{ item.slug }}"
-        >#</button>
-        {{ status_badge(item) }}
-        {% if channel %}<span class="card-meta-inline">{{ channel }}</span>{% endif %}
-        {% if msg_len %}<span class="card-meta-inline">{{ msg_len }} chars</span>{% endif %}
+          title="Copy deep link"
+        >Link</button>
       </div>
     </summary>
     <div class="card-body">
       <section class="card-section" aria-labelledby="cta-{{ item.slug }}">
         <div class="label" id="cta-{{ item.slug }}">Next step</div>
         <div class="cta-row">
-          {% if display_message and item.status|lower == 'approved' %}
+          {% if display_message and st == 'approved' %}
           <button
             type="button"
-            class="btn-copy"
+            class="btn-copy btn-primary"
             data-copy-text="{{ display_message }}"
             data-copy-slug="{{ item.slug }}"
             aria-label="{{ copy_label }}"
-          >[copy message]</button>
+          >Copy message</button>
           {% endif %}
           {% if profile_url %}
-          <a href="{{ profile_url }}">Open profile ↗</a>
+          <a class="btn-link" href="{{ profile_url }}">Open LinkedIn ↗</a>
           {% endif %}
-          {% if item.status|lower == 'rejected' and item.next_step_cta %}
+          {% if st == 'rejected' and item.metadata.get('retry_cli') %}
           <button
             type="button"
             class="btn-copy"
-            data-copy-text="{{ item.next_step_cta }}"
+            data-copy-text="{{ item.metadata.retry_cli }}"
             data-copy-slug="{{ item.slug }}-retry"
             aria-label="Copy retry command for {{ item.title }}"
-          >[copy CLI]</button>
+          >Copy retry command</button>
           {% endif %}
         </div>
-        {% if item.next_step_cta and item.status|lower != 'rejected' %}
-        <p class="cta-text">{{ item.next_step_cta }}</p>
-        {% elif item.status|lower == 'in_progress' %}
-        {% set round_n = item.metadata.get('current_round') or item.metadata.get('round') or item.rounds|length %}
-        {% set max_rounds = item.metadata.get('max_rounds', 3) %}
-        <p class="cta-text">Round {{ round_n }} of {{ max_rounds }} in flight.</p>
-        {% elif item.status|lower == 'rejected' %}
         {% if item.next_step_cta %}
         <p class="cta-text">{{ item.next_step_cta }}</p>
-        {% elif lr and lr.scores %}
-        <p class="cta-text">Top blockers:
-          {%- set shown = namespace(n=0) -%}
-          {%- for score in lr.scores -%}
-            {%- if score.weaknesses and shown.n < 3 -%}
-              {%- if shown.n > 0 %}; {% endif -%}{{ score.persona }}: {{ score.weaknesses[0] }}
-              {%- set shown.n = shown.n + 1 -%}
-            {%- endif -%}
-          {%- endfor -%}
-        </p>
-        {% endif %}
         {% endif %}
       </section>
 
@@ -370,13 +377,16 @@
   </details>
   {%- endmacro %}
 
-  <section aria-labelledby="approved-heading">
-    <h2 id="approved-heading">Approved ({{ approved_count }})</h2>
+  <section aria-labelledby="ready-heading">
+    <h2 id="ready-heading">Ready to send ({{ ready_count }})</h2>
 
-    {% if approved_count == 0 %}
+    {% if ready_count == 0 %}
     <div class="empty-state" role="status">
-      {% set enriched_total = run.funnel[0][1] if run.funnel else (approved_count + rejected_count) %}
-      <p><strong>0 prospects qualified out of {{ enriched_total }} enriched.</strong></p>
+      {% if progress_count > 0 %}
+      <p><strong>No messages approved yet.</strong> {{ progress_count }} prospect(s) still in review.</p>
+      {% else %}
+      {% set enriched_total = run.funnel[0][1] if run.funnel else rejected_count %}
+      <p><strong>0 prospects approved out of {{ enriched_total }} enriched.</strong></p>
       {% if run.rejection_patterns %}
       <p>The top rejection reasons were:</p>
       <ul>
@@ -387,15 +397,25 @@
       <p class="hint">Either widen the ICP or recheck the URL list.</p>
       <p class="hint">→ 03_qualification/rejected_prospects.json</p>
       {% else %}
-      <p class="hint">No approved items yet.</p>
+      <p class="hint">No approved messages yet.</p>
+      {% endif %}
       {% endif %}
     </div>
     {% else %}
-    {% for item in run.items %}
+    {% for item in ready_items %}
     {{ prospect_card(item) }}
     {% endfor %}
     {% endif %}
   </section>
+
+  {% if progress_count > 0 %}
+  <section aria-labelledby="progress-heading">
+    <h2 id="progress-heading">In review ({{ progress_count }})</h2>
+    {% for item in progress_items %}
+    {{ prospect_card(item) }}
+    {% endfor %}
+  </section>
+  {% endif %}
 
   {% if run.rejected_items %}
   <section aria-labelledby="rejected-heading">

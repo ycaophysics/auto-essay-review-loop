@@ -119,6 +119,8 @@ Status badges: APPROVED (ok), REJECTED (bad), IN PROGRESS (busy), STALLED/PARTIA
 7. Round diff (`<details>`, collapsed)
 8. Persona traces (nested `<details>`)
 
+Run-level sections (outbound): **Ready to send** (approved, cards open by default) → **In review** (in-progress) → **Rejected** (grouped by blocker). Header includes a one-line operator summary (“N ready to send · start with …”).
+
 ### Index sort
 
 In-progress runs pinned top; within each tier, `started_at` descending.

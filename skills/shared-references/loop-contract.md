@@ -130,7 +130,7 @@ Stop when ALL of:
 |--------|----------------------|
 | Blog | ≥75% of personas score ≥6/10 AND verdict ∈ {ready, almost} |
 | Social | All personas score ≥6/10 AND `0.8s-scroller` says "would not scroll past" |
-| LinkedIn | ≥75% personas ≥6/10 AND `executive-recruiter` says "would engage" |
+| LinkedIn | ≥75% personas ≥6/10 AND the **intent gatekeeper** veto passes — career: `executive-recruiter.would_engage == true`; thought-leadership: `op-ed-editor.would_run == true`. The LinkedIn skill selects the panel + gate by `--intent` (see its SKILL.md). |
 | Business plan | All personas ≥6/10 AND `vc-partner` says "would take meeting" AND `unit-economics-skeptic` says "math holds" |
 
 ### Human Checkpoint (if enabled)
@@ -151,7 +151,9 @@ For each unresolved weakness (highest priority first):
 3. If multiple personas suggest conflicting fixes, prefer the verification-grounded one (e.g., "shorten to <280 chars" beats "add more detail")
 4. Skip fixes that require external data we don't have (flag for manual follow-up)
 
-**Conflict resolution:** when two personas disagree (e.g., growth-hacker says "add hook" but executive-recruiter says "skip the hook"), record both, choose the one tied to the format's primary success metric (LinkedIn: engagement → growth-hacker wins; business plan: rigor → skeptic wins).
+**Conflict resolution:** when two personas disagree (e.g., growth-hacker says "add hook" but executive-recruiter says "skip the hook"), record both, choose the one tied to the format's primary success metric for the active panel (LinkedIn career: engagement → growth-hacker wins; LinkedIn thought-leadership: clarity/accuracy → op-ed-editor/domain-critic win; business plan: rigor → skeptic wins).
+
+**Stance-preservation principle (all formats):** Do not apply fixes that change the author's thesis, scope, or stated position. The loop *polishes* an idea — sharper expression, better evidence, less cliché — it does not *rewrite* the idea. When a persona demands a fix that contradicts the author's core claim (e.g., "add a counterargument the author deliberately rejects," "concede the other side," "balance this one-sided warning"), treat it as a **scope change, not a weakness** — surface it to the author and let them accept, skip, or edit. A demanded counterargument the author chose not to make is a decision about *what the piece argues*, which belongs to the author, not the loop. (Format skills whose genre is intrinsically one-sided — op-eds, polemics, warnings — should also encode this at the persona level so reviewers don't demand balance in the first place.)
 
 ### Phase D: Re-render / Re-verify
 

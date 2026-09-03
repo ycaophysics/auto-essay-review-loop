@@ -1,0 +1,9 @@
+{
+  "tool": "init_outbound_run",
+  "schema_version": 2,
+  "skill": "linkedin-outbound",
+  "status": "in_progress",
+  "run_id": "20260513_141200_outbound-happy",
+  "campaign_name": "outbound-happy",
+  "started_at": "2026-05-13T14:12:00Z"
+}

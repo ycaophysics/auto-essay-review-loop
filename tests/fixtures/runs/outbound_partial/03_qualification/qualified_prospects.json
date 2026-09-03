@@ -1,0 +1,26 @@
+[
+  {
+    "profile_slug": "example-founder",
+    "score": 8,
+    "reasonMatchedIcp": "Founder; B2B SaaS ICP match",
+    "evidence": [
+      "Founder"
+    ]
+  },
+  {
+    "profile_slug": "example-rejected",
+    "score": 7,
+    "reasonMatchedIcp": "CEO match",
+    "evidence": [
+      "CEO"
+    ]
+  },
+  {
+    "profile_slug": "example-progress",
+    "score": 8,
+    "reasonMatchedIcp": "Founder match",
+    "evidence": [
+      "Founder"
+    ]
+  }
+]

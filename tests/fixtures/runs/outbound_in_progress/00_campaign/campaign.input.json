@@ -1,0 +1,23 @@
+{
+  "icp": {
+    "titles": ["Founder", "CEO", "Head of Growth"],
+    "company_stage": "Seed to Series A",
+    "company_size": "5-50",
+    "industry": "B2B SaaS",
+    "pain": "manual prospect research and generic outbound",
+    "buying_trigger": "hiring SDRs or scaling outbound"
+  },
+  "offer": {
+    "product": "persona-reviewed outbound personalization",
+    "promise": "turn profile research into tailored first messages",
+    "proof": "messages pass target-customer, spam, sales, and compliance review"
+  },
+  "profileUrls": [
+    "https://www.linkedin.com/in/example-founder/",
+    "https://www.linkedin.com/in/example-noheadline/",
+    "https://malicious.example.com/in/spoofed/"
+  ],
+  "channels": {"email": false, "phone": false},
+  "tone": "direct, low-pressure, founder-to-founder",
+  "max_prospects": 25
+}

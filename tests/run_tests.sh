@@ -16,6 +16,7 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO_ROOT"
+export PYTHONPATH="$REPO_ROOT${PYTHONPATH:+:$PYTHONPATH}"
 
 PASS=0
 FAIL=0
@@ -373,7 +374,9 @@ rm -rf "$_ENRICH_OUT" 2>/dev/null || true
 
 # qualify_prospect: strong fixture qualifies (Founder + B2B SaaS + hiring SDRs
 # in about), weak fixture (no headline/role/company) is disqualified.
-_QUALIFY_OUT="$(mktemp -d -t auto-essay-qualify.XXXXXX 2>/dev/null || mktemp -d)"
+# Repo-relative temp dir: Git-Bash mktemp paths (/tmp/...) are invisible to Windows Python.
+_QUALIFY_OUT="$REPO_ROOT/tests/tmp/qualify_$$"
+mkdir -p "$_QUALIFY_OUT"
 assert_passed "qualify_prospect scores the strong fixture as qualified" "true" \
   bash tools/run.sh qualify_prospect.py tests/fixtures/outbound/normalized.json tests/fixtures/outbound/campaign.json --out-dir="$_QUALIFY_OUT"
 assert_metric "qualify_prospect emits qualified_count=1" "qualified_count" "1" \
@@ -381,7 +384,7 @@ assert_metric "qualify_prospect emits qualified_count=1" "qualified_count" "1" \
 assert_metric "qualify_prospect emits rejected_count=1" "rejected_count" "1" \
   bash tools/run.sh qualify_prospect.py tests/fixtures/outbound/normalized.json tests/fixtures/outbound/campaign.json --out-dir="$_QUALIFY_OUT"
 # qualified_prospects.json should contain the founder row at slug 'example-founder'.
-_QUAL_SLUG="$("$PYTHON" -c "import json; rows = json.load(open('$_QUALIFY_OUT/qualified_prospects.json')); print(rows[0]['profile_slug'] if rows else 'none')")"
+_QUAL_SLUG="$(QUALIFY_OUT="$_QUALIFY_OUT" "$PYTHON" -c "import json, os, pathlib; p = pathlib.Path(os.environ['QUALIFY_OUT']) / 'qualified_prospects.json'; rows = json.loads(p.read_text(encoding='utf-8')); print(rows[0].get('profile_slug', 'none') if rows else 'none')")"
 if [ "$_QUAL_SLUG" = "example-founder" ]; then
   RESULTS+=("PASS  qualify_prospect: example-founder qualifies (slug present in qualified_prospects.json)")
   PASS=$((PASS+1))
@@ -545,6 +548,244 @@ assert_passed "verify_application handles non-UTF8 input gracefully" "false" \
 assert_passed "verify_cv handles non-UTF8 input gracefully" "false" \
   "$PYTHON" tools/verify_cv.py "$_BAD_ENC_FILE" --target-pages=1
 rm -f "$_BAD_ENC_FILE" 2>/dev/null || true
+
+# assert_python_ok <name> <python -c script>
+assert_python_ok() {
+  local name="$1"; shift
+  if "$PYTHON" -c "$@" >/dev/null 2>&1; then
+    RESULTS+=("PASS  $name")
+    PASS=$((PASS+1))
+  else
+    RESULTS+=("FAIL  $name")
+    FAIL=$((FAIL+1))
+  fi
+}
+
+# --- Report adapter helpers (Phase 1 foundations) ---
+assert_python_ok "mask_secrets redacts Bearer sk-*" \
+  "from tools.report_adapters._helpers import mask_secrets; t='Bearer sk-abc123456789012345678901234'; assert mask_secrets(t) == '[REDACTED]', repr(mask_secrets(t))"
+
+assert_python_ok "truncate_trace caps at 5KB" \
+  "from tools.report_adapters._helpers import truncate_trace; big='x' * 100_000; out, trunc = truncate_trace(big); assert trunc; assert '[truncated]' in out; assert len(out.encode('utf-8')) <= 5200"
+
+assert_python_ok "load_json_safe missing returns FileNotFoundError" \
+  "from pathlib import Path; from tools.report_adapters._helpers import load_json_safe; data, err = load_json_safe(Path('tests/fixtures/__no_such_file__.json')); assert data is None and err and 'FileNotFoundError' in err"
+
+assert_python_ok "load_json_safe malformed returns JSONDecodeError" \
+  "import tempfile, os; from pathlib import Path; from tools.report_adapters._helpers import load_json_safe; fd, p = tempfile.mkstemp(suffix='.json'); os.write(fd, b'{not json'); os.close(fd); data, err = load_json_safe(Path(p)); os.unlink(p); assert data is None and err and 'JSONDecodeError' in err"
+
+assert_python_ok "atomic_write creates target file" \
+  "import tempfile, os; from pathlib import Path; from tools.report_adapters._helpers import atomic_write; d = Path(tempfile.mkdtemp()); t = d / 'out.txt'; atomic_write('hello', t); assert t.read_text(encoding='utf-8') == 'hello'; import shutil; shutil.rmtree(d)"
+
+assert_python_ok "snapshot_read_jsonl drops trailing partial line silently" \
+  "import tempfile, os; from pathlib import Path; from tools.report_adapters._helpers import snapshot_read_jsonl; d = Path(tempfile.mkdtemp()); p = d / 'state.jsonl'; p.write_text('{\"a\":1}\n{\"b\":2', encoding='utf-8'); rows, warns = snapshot_read_jsonl(p); import shutil; shutil.rmtree(d); assert len(rows) == 1 and rows[0]['a'] == 1 and not warns"
+
+assert_python_ok "report adapter registry imports cleanly" \
+  "from tools.report_adapters import make_jinja_env, list_adapters; from pathlib import Path; env = make_jinja_env(Path('templates/report')); assert env.autoescape is not None"
+
+# --- RUN.json migration + init_outbound_run schema v2 (Phase 2) ---
+_MIGRATE_DIR="$(mktemp -d -t auto-essay-migrate.XXXXXX 2>/dev/null || mktemp -d)"
+mkdir -p "$_MIGRATE_DIR/review-stage/outbound/runs/20260525_test-run"
+cat > "$_MIGRATE_DIR/review-stage/outbound/runs/20260525_test-run/RUN.json" <<'EOF'
+{
+  "tool": "init_outbound_run",
+  "schema_version": 1,
+  "run_id": "20260525_test-run"
+}
+EOF
+
+_MIGRATE_OUT="$("$PYTHON" tools/migrate_run_json_add_skill.py --root="$_MIGRATE_DIR/review-stage" 2>&1)" || true
+_MIGRATE_PASSED="$(extract_passed "$_MIGRATE_OUT")"
+if [ "$_MIGRATE_PASSED" = "true" ]; then
+  RESULTS+=("PASS  migrate_run_json adds skill to fixture without skill")
+  PASS=$((PASS+1))
+else
+  RESULTS+=("FAIL  migrate_run_json adds skill to fixture without skill  (expected passed=true, got passed=$_MIGRATE_PASSED)")
+  FAIL=$((FAIL+1))
+fi
+
+_MIGRATE_SKILL="$("$PYTHON" -c "
+import sys, json
+data = json.loads(sys.stdin.read())
+for check in data.get('checks', []):
+    if check.get('name') == 'skill_backfilled':
+        print(check.get('skill', ''))
+        break
+else:
+    print('')
+" <<< "$_MIGRATE_OUT")"
+if [ "$_MIGRATE_SKILL" = "linkedin-outbound" ]; then
+  RESULTS+=("PASS  migrate_run_json wrote skill=linkedin-outbound")
+  PASS=$((PASS+1))
+else
+  RESULTS+=("FAIL  migrate_run_json skill  (expected linkedin-outbound, got '$_MIGRATE_SKILL')")
+  FAIL=$((FAIL+1))
+fi
+
+assert_metric "migrate_run_json idempotent on already-migrated" "skipped" "1" \
+  "$PYTHON" tools/migrate_run_json_add_skill.py --root="$_MIGRATE_DIR/review-stage"
+rm -rf "$_MIGRATE_DIR" 2>/dev/null || true
+
+_INIT_OUT="$(mktemp -d -t auto-essay-init-outbound.XXXXXX 2>/dev/null || mktemp -d)"
+_INIT_OUT_JSON="$("$PYTHON" tools/init_outbound_run.py tests/fixtures/outbound/campaign.json --base-dir="$_INIT_OUT/outbound" --no-latest --name=test-init --timestamp=20260525_120000 2>&1)" || true
+_INIT_PASSED="$(extract_passed "$_INIT_OUT_JSON")"
+if [ "$_INIT_PASSED" = "true" ]; then
+  RESULTS+=("PASS  init_outbound_run creates run directory")
+  PASS=$((PASS+1))
+else
+  RESULTS+=("FAIL  init_outbound_run creates run directory  (expected passed=true, got passed=$_INIT_PASSED)")
+  FAIL=$((FAIL+1))
+fi
+
+_INIT_TOOL_SCHEMA="$("$PYTHON" -c "import sys, json; print(json.loads(sys.stdin.read()).get('schema_version', ''))" <<<"$_INIT_OUT_JSON")"
+if [ "$_INIT_TOOL_SCHEMA" = "2" ]; then
+  RESULTS+=("PASS  init_outbound_run tool stdout schema_version=2")
+  PASS=$((PASS+1))
+else
+  RESULTS+=("FAIL  init_outbound_run tool stdout schema_version=2  (expected 2, got '$_INIT_TOOL_SCHEMA')")
+  FAIL=$((FAIL+1))
+fi
+
+_INIT_RUN_DIR="$("$PYTHON" -c "import sys, json; print(json.loads(sys.stdin.read()).get('run_dir', ''))" <<<"$_INIT_OUT_JSON")"
+_INIT_MANIFEST="$("$PYTHON" -c '
+import json, sys
+from pathlib import Path
+run_dir = Path(sys.argv[1])
+print(json.dumps(json.loads((run_dir / "RUN.json").read_text(encoding="utf-8"))))
+' "$_INIT_RUN_DIR")"
+_INIT_SKILL="$("$PYTHON" -c "import sys, json; print(json.loads(sys.stdin.read()).get('skill', ''))" <<<"$_INIT_MANIFEST")"
+_INIT_SCHEMA="$("$PYTHON" -c "import sys, json; print(json.loads(sys.stdin.read()).get('schema_version', ''))" <<<"$_INIT_MANIFEST")"
+if [ "$_INIT_SCHEMA" = "2" ]; then
+  RESULTS+=("PASS  init_outbound_run RUN.json schema_version=2")
+  PASS=$((PASS+1))
+else
+  RESULTS+=("FAIL  init_outbound_run RUN.json schema_version=2  (expected 2, got '$_INIT_SCHEMA')")
+  FAIL=$((FAIL+1))
+fi
+if [ "$_INIT_SKILL" = "linkedin-outbound" ]; then
+  RESULTS+=("PASS  init_outbound_run RUN.json skill=linkedin-outbound")
+  PASS=$((PASS+1))
+else
+  RESULTS+=("FAIL  init_outbound_run RUN.json skill=linkedin-outbound  (expected linkedin-outbound, got '$_INIT_SKILL')")
+  FAIL=$((FAIL+1))
+fi
+rm -rf "$_INIT_OUT" 2>/dev/null || true
+
+# assert_grep_file <name> <pattern> <file>
+assert_grep_file() {
+  local name="$1"; shift
+  local pattern="$1"; shift
+  local file="$1"; shift
+  if [ ! -f "$file" ]; then
+    RESULTS+=("FAIL  $name  (file missing: $file)")
+    FAIL=$((FAIL+1))
+    return
+  fi
+  if grep -qE "$pattern" "$file" 2>/dev/null; then
+    RESULTS+=("PASS  $name")
+    PASS=$((PASS+1))
+  else
+    RESULTS+=("FAIL  $name  (pattern '$pattern' not in $file)")
+    FAIL=$((FAIL+1))
+  fi
+}
+
+# assert_no_grep_file <name> <pattern> <file>
+assert_no_grep_file() {
+  local name="$1"; shift
+  local pattern="$1"; shift
+  local file="$1"; shift
+  if [ ! -f "$file" ]; then
+    RESULTS+=("FAIL  $name  (file missing: $file)")
+    FAIL=$((FAIL+1))
+    return
+  fi
+  if grep -qE "$pattern" "$file" 2>/dev/null; then
+    RESULTS+=("FAIL  $name  (unexpected pattern '$pattern' in $file)")
+    FAIL=$((FAIL+1))
+  else
+    RESULTS+=("PASS  $name")
+    PASS=$((PASS+1))
+  fi
+}
+
+# --- generate_run_report (Phase 3) ---
+_OUT_HAPPY="tests/fixtures/runs/outbound_happy"
+_GEN_OUT="$("$PYTHON" tools/generate_run_report.py "$_OUT_HAPPY" 2>&1)" || true
+_GEN_PASSED="$(extract_passed "$_GEN_OUT")"
+if [ "$_GEN_PASSED" = "true" ] && [ -f "$_OUT_HAPPY/report.html" ]; then
+  RESULTS+=("PASS  generate_run_report on outbound_happy writes report.html")
+  PASS=$((PASS+1))
+else
+  RESULTS+=("FAIL  generate_run_report on outbound_happy writes report.html")
+  FAIL=$((FAIL+1))
+fi
+
+assert_grep_file "report.html contains funnel counts" "qualified" "$_OUT_HAPPY/report.html"
+assert_grep_file "report.html contains ready-to-send section" "Ready to send" "$_OUT_HAPPY/report.html"
+assert_grep_file "report.html contains in-review section" "In review" "$_OUT_HAPPY/report.html"
+assert_grep_file "report.html contains persona scorecard" "Persona scorecard" "$_OUT_HAPPY/report.html"
+assert_grep_file "report.html contains verification row" "Verification" "$_OUT_HAPPY/report.html"
+assert_grep_file "report.html shows in-progress badge" "IN PROGRESS" "$_OUT_HAPPY/report.html"
+assert_grep_file "report.html contains copy buttons with aria-label" 'aria-label="Copy message' "$_OUT_HAPPY/report.html"
+assert_grep_file "report.html contains run summary" "ready to send" "$_OUT_HAPPY/report.html"
+assert_grep_file "outbound report uses LinkedIn send CTA" "open LinkedIn, send" "$_OUT_HAPPY/report.html"
+assert_no_grep_file "outbound report skips qual-only rejection headers" "rejected for no B2B SaaS signal in headline" "$_OUT_HAPPY/report.html"
+assert_no_grep_file "report.html has no external http URLs" 'http://' "$_OUT_HAPPY/report.html"
+assert_grep_file "report.html escapes script from profile" '&lt;script&gt;' "$_OUT_HAPPY/report.html" || assert_no_grep_file "report.html no raw script tag" '<script>alert' "$_OUT_HAPPY/report.html"
+assert_grep_file "report.html masks secrets in trace" '\[REDACTED\]' "$_OUT_HAPPY/report.html"
+
+_GEN_PROG="$("$PYTHON" tools/generate_run_report.py tests/fixtures/runs/outbound_in_progress 2>&1)" || true
+assert_grep_file "outbound_in_progress has meta refresh" 'http-equiv="refresh"' "tests/fixtures/runs/outbound_in_progress/report.html"
+
+_GEN_DONE="$("$PYTHON" tools/generate_run_report.py tests/fixtures/runs/outbound_completed 2>&1)" || true
+assert_no_grep_file "outbound_completed has NO meta refresh" 'http-equiv="refresh"' "tests/fixtures/runs/outbound_completed/report.html"
+
+_GEN_PART="$("$PYTHON" tools/generate_run_report.py tests/fixtures/runs/outbound_partial 2>&1)" || true
+_PART_PASSED="$(extract_passed "$_GEN_PART")"
+if [ "$_PART_PASSED" = "true" ]; then
+  RESULTS+=("PASS  generate_run_report on outbound_partial exits 0")
+  PASS=$((PASS+1))
+else
+  RESULTS+=("FAIL  generate_run_report on outbound_partial exits 0")
+  FAIL=$((FAIL+1))
+fi
+
+_GEN_ESSAY="$("$PYTHON" tools/generate_run_report.py tests/fixtures/runs/essay_happy 2>&1)" || true
+_ESSAY_PASSED="$(extract_passed "$_GEN_ESSAY")"
+if [ "$_ESSAY_PASSED" = "true" ]; then
+  RESULTS+=("PASS  generate_run_report on essay_happy succeeds")
+  PASS=$((PASS+1))
+else
+  RESULTS+=("FAIL  generate_run_report on essay_happy succeeds")
+  FAIL=$((FAIL+1))
+fi
+
+assert_no_grep_file "essay report has no LinkedIn send CTA" "open LinkedIn, send" "tests/fixtures/runs/essay_happy/report.html"
+assert_grep_file "essay report uses neutral approved CTA" "review the approved draft below" "tests/fixtures/runs/essay_happy/report.html"
+assert_grep_file "essay report uses Approved section heading" 'Approved \(1\)' "tests/fixtures/runs/essay_happy/report.html"
+
+if [ -f "$_OUT_HAPPY/expected_report.html" ] && [ -f "$_OUT_HAPPY/report.html" ]; then
+  if cmp -s "$_OUT_HAPPY/expected_report.html" "$_OUT_HAPPY/report.html" 2>/dev/null; then
+    RESULTS+=("PASS  report.html matches expected_report.html golden snapshot")
+    PASS=$((PASS+1))
+  else
+    RESULTS+=("FAIL  report.html golden snapshot mismatch (re-run with --update-golden)")
+    FAIL=$((FAIL+1))
+  fi
+else
+  RESULTS+=("FAIL  expected_report.html golden snapshot missing")
+  FAIL=$((FAIL+1))
+fi
+
+_GEN_MISSING="$("$PYTHON" tools/generate_run_report.py "$REPO_ROOT/tests/fixtures/__no_such_run_dir__" 2>&1)" || _GEN_MISSING_EXIT=$?
+if [ "${_GEN_MISSING_EXIT:-0}" = "2" ]; then
+  RESULTS+=("PASS  generate_run_report missing run_dir exits 2")
+  PASS=$((PASS+1))
+else
+  RESULTS+=("FAIL  generate_run_report missing run_dir exits 2  (exit=${_GEN_MISSING_EXIT:-0})")
+  FAIL=$((FAIL+1))
+fi
 
 # --- Summary ---
 echo

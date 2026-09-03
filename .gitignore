@@ -5,6 +5,7 @@ traces/
 # Review state (regenerated each run)
 review-stage/REVIEW_STATE.json
 **/REVIEW_STATE.json
+review-stage/.report-index.cache.json
 
 # Local environment
 .env

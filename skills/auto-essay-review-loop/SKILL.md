@@ -129,7 +129,7 @@ Match if ALL of these:
 - No markdown H1/H2 structure (or at most one H1)
 - Filename matches `(?i)(linkedin|li[_-]?post)` OR hashtag count ≥ 2
 
-→ dispatch `auto-linkedin-review-loop`
+→ dispatch `auto-linkedin-review-loop`. LinkedIn hosts distinct genres under one format (career/personal-brand vs. impersonal op-ed/civic/analysis), and the right persona panel differs. If the user passed `--intent=career|thought-leadership`, forward it verbatim. Otherwise do **not** guess — forward `--intent=<missing>` and let the LinkedIn skill ask once, exactly as slides forwards `--scenario=<missing>` and applications forward `--target=<missing>`. (The umbrella stays a pure dispatcher; it does not run intent-detection heuristics.)
 
 ### Rule 5 — blog signals
 
@@ -172,7 +172,7 @@ Once format is decided, invoke the matching skill via the Skill tool:
 |--------|-----------|
 | blog | `auto-blog-review-loop` |
 | social | `auto-social-review-loop` |
-| linkedin | `auto-linkedin-review-loop` |
+| linkedin | `auto-linkedin-review-loop` (also pass `--intent=career\|thought-leadership`, or `--intent=<missing>` if unclear) |
 | business-plan | `auto-business-plan-review-loop` |
 | application | `auto-application-review-loop` (also pass `--target=<type>`) |
 | cv | `auto-cv-review-loop` |

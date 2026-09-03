@@ -57,6 +57,7 @@ PLATFORMS = {
         "hashtag_limit": 5,
         "link_limit": 1,
         "url_weight": None,
+        "hook_limit": 210,   # first 2 lines must fit the mobile "…see more" cutoff
         "aliases": (),
     },
 }
@@ -187,18 +188,37 @@ def build_result(
         "hashtags": hashtags,
     })
 
-    # 4. mention_validity
-    mention_passed = len(bad_mentions) == 0
-    checks.append({
-        "name": "mention_validity",
-        "passed": mention_passed,
-        "detail": (
-            f"{len(mentions)} valid mention(s); {len(bad_mentions)} malformed"
-            + (f": {bad_mentions}" if bad_mentions else "")
-        ),
-        "valid_mentions": mentions,
-        "malformed": bad_mentions,
-    })
+    # 4. platform-specific fourth check.
+    #    LinkedIn: hook_length (first 2 lines vs the mobile "…see more" cutoff).
+    #    X/Threads/IG: mention_validity (well-formed @handles).
+    #    The index stays at 3 either way so positional test assertions hold.
+    if "hook_limit" in spec:
+        hook_text = "\n".join(text.splitlines()[:2])
+        hook_len = len(hook_text)
+        hook_limit = spec["hook_limit"]
+        hook_passed = hook_len <= hook_limit
+        checks.append({
+            "name": "hook_length",
+            "passed": hook_passed,
+            "detail": (
+                f"first 2 lines = {hook_len} chars; limit {hook_limit}"
+                + ("" if hook_passed else "; mobile preview will cut off mid-sentence")
+            ),
+            "value": hook_len,
+            "limit": hook_limit,
+        })
+    else:
+        mention_passed = len(bad_mentions) == 0
+        checks.append({
+            "name": "mention_validity",
+            "passed": mention_passed,
+            "detail": (
+                f"{len(mentions)} valid mention(s); {len(bad_mentions)} malformed"
+                + (f": {bad_mentions}" if bad_mentions else "")
+            ),
+            "valid_mentions": mentions,
+            "malformed": bad_mentions,
+        })
 
     passed = all(c["passed"] for c in checks)
     summary = (

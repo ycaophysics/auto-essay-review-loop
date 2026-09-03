@@ -166,6 +166,16 @@ assert_metric "broetry slop hashtag_count value" "checks.2.value" "8" \
   "$PYTHON" tools/count_chars.py tests/fixtures/linkedin/broetry_slop.md --format=linkedin
 assert_metric "broetry slop link_count value" "checks.1.value" "2" \
   "$PYTHON" tools/count_chars.py tests/fixtures/linkedin/broetry_slop.md --format=linkedin
+# LinkedIn's 4th check must be hook_length (not mention_validity); index 3, after char/link/hashtag.
+assert_metric "LinkedIn 4th check is hook_length" "checks.3.name" "hook_length" \
+  "$PYTHON" tools/count_chars.py tests/fixtures/linkedin/good_post.md --format=linkedin
+assert_metric "good LinkedIn post hook_length passes" "checks.3.passed" "True" \
+  "$PYTHON" tools/count_chars.py tests/fixtures/linkedin/good_post.md --format=linkedin
+# A legal post whose ONLY defect is a >210-char first-2-lines must fail on hook_length.
+assert_passed "count_chars LinkedIn long-hook fails" "false" \
+  "$PYTHON" tools/count_chars.py tests/fixtures/linkedin/long_hook.md --format=linkedin
+assert_metric "long-hook hook_length over limit fails" "checks.3.passed" "False" \
+  "$PYTHON" tools/count_chars.py tests/fixtures/linkedin/long_hook.md --format=linkedin
 
 # --- Business plan: market sizing ---
 assert_passed "market_size_check fantasy TAM" "false" \

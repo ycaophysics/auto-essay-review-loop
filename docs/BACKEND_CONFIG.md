@@ -4,9 +4,9 @@ The reviewer is a different model from the executor. The executor is
 whatever LLM is driving Claude Code (Claude). The reviewer is GPT-5.4 via
 the Codex MCP server, in v0.1. v0.2+ adds more options.
 
-## v0.1 — Codex MCP only
+## Codex (default reviewer)
 
-This is the only supported reviewer in v0.1. It is not optional.
+Codex (GPT-5.4) is the reviewer. The **Codex MCP server** (`mcp__codex__codex`) is the preferred transport. If the MCP is unavailable mid-run (e.g., a dead OAuth refresh token returning `401`), the skills fall back to the **Codex CLI** (`codex exec`) — see [Codex CLI fallback](#codex-cli-fallback). Both call the same model with the same prompts; only the transport differs. (Non-Codex reviewers remain v0.2+ roadmap — see below.)
 
 ### What you need
 
@@ -63,6 +63,26 @@ Each persona, each round, gets a FRESH thread. The skill never calls
 `mcp__codex__codex-reply` across rounds. See
 [`shared-references/reviewer-independence.md`](../skills/shared-references/reviewer-independence.md)
 for why.
+
+### Codex CLI fallback
+
+If `mcp__codex__codex` is unreachable, the skills run the same review through the Codex CLI — one call per persona per round:
+
+```bash
+codex exec --skip-git-repo-check -m gpt-5.4 -c model_reasoning_effort=medium -s read-only \
+  --output-schema <persona_schema.json> \
+  -o <trace>/persona-<name>-round-<N>.response.txt \
+  < <trace>/persona-<name>-round-<N>.prompt.txt
+```
+
+- `--output-schema` forces the persona's JSON shape (no parse-retry loop needed).
+- `-o` writes only the final assistant message (the JSON) to the trace file.
+- The prompt file is the same system + user prompt used for the MCP path, with the draft inlined in `<DRAFT>` tags.
+- Run the four persona calls concurrently (background + `wait`).
+
+**Auth.** The CLI shares `~/.codex/auth.json` with the MCP, so a dead OAuth session breaks both. Recover with `codex login`, or switch to an API key: `printenv OPENAI_API_KEY | codex login --with-api-key` (back up `auth.json` first — this switches Codex to metered API billing rather than the ChatGPT subscription).
+
+This is a transport fallback for the same Codex reviewer, not a new backend; the `--reviewer=` options below are separate v0.2+ work.
 
 ### Cost expectations (v0.1)
 

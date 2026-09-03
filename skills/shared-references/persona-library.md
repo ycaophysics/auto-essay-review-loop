@@ -19,10 +19,25 @@ file in `personas/{format}/{name}.md` with a fixed schema (see
 - [domain-expert](../../personas/social/domain-expert.md) — knows the topic; checks for cringe, errors, oversimplification
 
 ### LinkedIn (`personas/linkedin/`)
-- [executive-recruiter](../../personas/linkedin/executive-recruiter.md) — hiring manager; would they DM?
+
+LinkedIn uses **intent-selected panels** (like slides' scenario-selected panels). The LinkedIn skill picks one panel via `--intent`:
+
+| Intent | Panel | Gatekeeper |
+|--------|-------|------------|
+| `career` (default) | executive-recruiter, cynical-scroller, growth-hacker, target-icp | executive-recruiter (`would_engage`) |
+| `thought-leadership` | op-ed-editor, general-reader, domain-critic, persuadable-skeptic | op-ed-editor (`would_run`) |
+
+Career panel:
+- [executive-recruiter](../../personas/linkedin/executive-recruiter.md) — hiring manager; would they DM? (gatekeeper, `would_engage`)
 - [cynical-scroller](../../personas/linkedin/cynical-scroller.md) — sees through "broetry" and humble-brags
 - [growth-hacker](../../personas/linkedin/growth-hacker.md) — measures hook strength + engagement bait quality
 - [target-icp](../../personas/linkedin/target-icp.md) — your actual audience (configurable)
+
+Thought-leadership panel (op-ed / civic / analysis):
+- [op-ed-editor](../../personas/linkedin/op-ed-editor.md) — opinion editor; would they run it? (gatekeeper, `would_run`)
+- [general-reader](../../personas/linkedin/general-reader.md) — the intelligent non-specialist the argument is for (configurable)
+- [domain-critic](../../personas/linkedin/domain-critic.md) — sympathetic field expert; demands accuracy, not both-sides balance
+- [persuadable-skeptic](../../personas/linkedin/persuadable-skeptic.md) — the reader who does not already agree; did it move them?
 
 ### Business plan (`personas/business-plan/`)
 - [vc-partner](../../personas/business-plan/vc-partner.md) — Sequoia/a16z partner voice; pattern-match to fundable
